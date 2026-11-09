@@ -103,12 +103,13 @@ button{cursor:pointer}
 </div>
 <section id="staffView">
 <input id="q" placeholder="患者さんの名前（ひらがな可）・管理番号" autocomplete="off" aria-label="患者さんを探す">
-<div class="row" style="margin:6px 0"><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">患者データを取り込む（CSV）<input id="csv" type="file" accept=".csv,text/csv" hidden></label><button class="btn" id="newbtn">＋ 新規の患者さんを登録</button></div>
+<div class="row" style="margin:6px 0"><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">患者データを取り込む（CSV）<input id="csv" type="file" accept=".csv,text/csv" hidden></label><button class="btn" id="newbtn">＋ 新規の患者さんを登録</button><button class="btn" id="absbtn">スタッフの欠勤を設定</button></div>
 <p class="note" style="margin:0 0 6px">メープルのCSVを読み込むと、この店舗の患者さんとして保存されます。すでにいる方は飛ばされ、新しい方だけが追加されます。（名前などが変わっていれば更新されます）</p>
 <div id="nform" class="panel" hidden>
 <div class="row"><label>氏名 <input id="nn" class="fi" autocomplete="off"></label><label>フリガナ <input id="nk" class="fi" autocomplete="off"></label><button class="btn p" id="nsave">登録して選ぶ</button><button class="btn" id="ncancel">閉じる</button></div>
 <p>登録先の店舗：<span id="nstore"></span>。メープルの管理番号が決まったら、あとから登録して紐づけられます。</p>
 </div>
+<div id="absform" class="panel" hidden></div>
 <div id="sug"></div>
 <div id="patient"></div>
 <div id="detail"></div>
@@ -143,6 +144,14 @@ const B={};
 const S={role:'staff',store:'',date:new Date(),pid:null,sel:null,q:'',view:'day',ws:0,cfgOpen:{},mk:{j:0,h:0,r:0,n:0},mode:'loading',admin:false,canW:true,psig:'',rf:'',rt:''};
 S.date.setHours(0,0,0,0);
 let sb=null,ME=null;
+let ABSL=[];const ABS={};
+function rebuildAbs(){Object.keys(ABS).forEach(k=>delete ABS[k]);ABSL.forEach(a=>{const k=a.store_id+'|'+a.absence_date+'|'+a.lane;(ABS[k]=ABS[k]||{})[a.part]=1})}
+function isAbsent(store,d,lane,t,st){
+ if(lane==='q')return false;
+ const a=ABS[store+'|'+(typeof d==='string'?d:iso(d))+'|'+lane];if(!a)return false;
+ return !!(a.all||(a.am&&t<=st.lastAm)||(a.pm&&t>=st.pm));
+}
+const absCell=(store,d,lane,t,st,extra)=>'<div class="cl"'+(extra||'')+'>'+((t===st.first||t===st.pm||!isAbsent(store,d,lane,t-20,st))?'欠勤':'')+'</div>';
 const key=(d,st,s,t)=>iso(d)+'|'+st+'|'+s+'|'+t;
 const keyParts=k=>{const a=k.split('|');return {date:a[0],store:a[1],s:a[2],t:+a[3]}};
 const sk=(s,t)=>s+'_'+t;
@@ -221,6 +230,7 @@ function weekTable(){
     const bs=[];st.staff.forEach((nm,s)=>{const bb=B[key(d,S.store,s,t)];if(bb)bs.push(pn(bb.pid)+'（'+nm+'）')});
     h+='<button class="'+(bs.length?'bk':'em')+'" data-a="1" data-t="'+t+'" data-d="'+iso(d)+'" title="'+esc(bs.join('、'))+'">'+(bs.length?bs.length+' / '+st.staff.length:'')+'</button>';return}
    const k=key(d,S.store,S.ws,t),b=B[k];
+   if(!b&&isAbsent(S.store,d,S.ws,t,st)){h+=absCell(S.store,d,S.ws,t,st);return}
    if(b){h+='<button class="bk'+(S.sel===k?' on':'')+'" data-k="'+k+'">'+mk(b)+'</button>'}
    else h+='<button class="em" data-s="'+S.ws+'" data-t="'+t+'" data-d="'+iso(d)+'" aria-label="'+iso(d)+' '+fmt(t)+' 空き"></button>';
   });
@@ -247,6 +257,7 @@ function sheetTable(){
       const k=key(d,S.store,'q',u),b=B[k];
       return b?'<button class="bk'+(S.sel===k?' on':'')+'" data-k="'+k+'">'+mk(b)+'</button>':'<button class="em" data-s="q" data-t="'+u+'" data-d="'+iso(d)+'" aria-label="'+iso(d)+' '+fmt(u)+' 10分枠 空き"></button>'}).join('')+'</div>';continue}
     const k=key(d,S.store,s,t),b=B[k];
+    if(!b&&isAbsent(S.store,d,s,t,st)){h+=absCell(S.store,d,s,t,st,b0);continue}
     h+=b?'<button class="bk'+(S.sel===k?' on':'')+'"'+b0+' data-k="'+k+'">'+mk(b)+'</button>':'<button class="em"'+b0+' data-s="'+s+'" data-t="'+t+'" data-d="'+iso(d)+'" aria-label="'+iso(d)+' '+esc(st.staff[s])+' '+fmt(t)+' 空き"></button>';
    }
   });
@@ -327,7 +338,10 @@ const API={
   return {ok,fail}},
  async updatePatientName(id,name,kana){const {error}=await sb.from('patients').update({name,kana}).eq('id',id);if(error)throw error},
  async saveStore(st){const {error}=await sb.from('stores').update({staff:st.staff,days:st.days,half:st.half,hol:st.hol,first_min:st.first,last_am:st.lastAm,pm_min:st.pm,last_pm:st.lastPm,half_end:st.halfEnd}).eq('id',st.id);if(error)throw error},
- subscribe(cb){sb.channel('appts').on('postgres_changes',{event:'*',schema:'public',table:'appointments'},cb).subscribe()}
+ async absences(from,to){const {data,error}=await sb.from('staff_absences').select('id,store_id,absence_date,lane,part').gte('absence_date',from).lte('absence_date',to).order('absence_date');if(error)throw error;return data},
+ async addAbsence(row){const {data,error}=await sb.from('staff_absences').insert(row).select('id,store_id,absence_date,lane,part').single();if(error)throw error;return data},
+ async delAbsence(id){const {error}=await sb.from('staff_absences').delete().eq('id',id);if(error)throw error},
+ subscribe(cb){sb.channel('appts').on('postgres_changes',{event:'*',schema:'public',table:'appointments'},cb).on('postgres_changes',{event:'*',schema:'public',table:'staff_absences'},cb).subscribe()}
 };
 function saveSettings(st){if(!S.admin)return;API.saveStore(st).catch(()=>toast('設定を保存できませんでした。もう一度お試しください'))}
 function rebuild(rows){
@@ -346,8 +360,8 @@ let rT=null,rBusy=false;
 function scheduleReload(){clearTimeout(rT);rT=setTimeout(reload,300)}
 async function reload(){
  if(rBusy)return;rBusy=true;
- try{rebuild(await API.appts(S.rf,S.rt));S.mode='live'}catch(e){S.mode='error'}
- rBusy=false;render();
+ try{const [rows,ab]=await Promise.all([API.appts(S.rf,S.rt),API.absences(S.rf,S.rt).catch(()=>ABSL)]);rebuild(rows);ABSL=ab;rebuildAbs();S.mode='live'}catch(e){S.mode='error'}
+ rBusy=false;render();absList();
 }
 function ensureRange(){
  const a=iso(addDays(S.date,-14)),b=iso(addDays(S.date,14));
@@ -364,6 +378,7 @@ async function book(s,t,pid,date){
  if(!isOpenDay(st0,date)){toast('その日は休診日です');return false}
  if(t<st0.first||t>st0.lastPm||isBreak(st0,t,date)){toast('その時間は受付時間外です');return false}
  if(B[k]){toast('その枠はすでに埋まっています');return false}
+ if(isAbsent(S.store,date,s,t,st0)){toast('このスタッフは、その時間は欠勤に設定されています');return false}
  const two=!!S.mk.w&&s!=='q';
  const k2=key(date,S.store,s,t+20);
  if(two){
@@ -412,7 +427,7 @@ async function linkNew(p,num){
  toast((now?now.n+'さん':'管理番号 '+num)+'に紐づけました');
 }
 
-$('myStore').onchange=e=>{S.store=e.target.value;try{localStorage.setItem('rsv_store',S.store)}catch(x){}S.ws=0;S.pid=null;S.sel=null;S.q='';$('q').value='';sugg();render()};
+$('myStore').onchange=e=>{S.store=e.target.value;try{localStorage.setItem('rsv_store',S.store)}catch(x){}S.ws=0;S.pid=null;S.sel=null;S.q='';$('q').value='';sugg();render();if(!$('absform').hidden)absOpen()};
 $('prev').onclick=()=>{S.date=addDays(S.date,(S.role==='staff'||S.view!=='day')?-7:-1);S.sel=null;ensureRange();render()};
 $('next').onclick=()=>{S.date=addDays(S.date,(S.role==='staff'||S.view!=='day')?7:1);S.sel=null;ensureRange();render()};
 $('today').onclick=()=>{S.date=new Date();S.date.setHours(0,0,0,0);S.sel=null;ensureRange();render()};
@@ -473,6 +488,44 @@ $('patient').onchange=e=>{const f=e.target.dataset.mk;if(f)S.mk[f]=e.target.chec
 $('detail').onchange=e=>{const f=e.target.dataset.bm;if(!f||!S.sel)return;setMark(S.sel,f,e.target.checked?1:0)};
 function parseCsv(t){const r=[];let row=[],f='',q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}else if(c==='"')q=true;else if(c===','){row.push(f);f=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(f);f='';r.push(row);row=[]}else f+=c}if(f!==''||row.length){row.push(f);r.push(row)}return r}
 function decodeBuf(buf){try{return new TextDecoder('utf-8',{fatal:true}).decode(buf)}catch(e){return new TextDecoder('shift_jis').decode(buf)}}
+function absOpen(){
+ const st=STORES.find(x=>x.id===S.store);
+ $('absform').innerHTML='<div class="row"><label>スタッフ <select id="absS">'+st.staff.map((x,i)=>'<option value="'+i+'">'+esc(x)+'</option>').join('')+'</select></label>'
+  +'<label>日付 <input type="date" id="absD" class="fi" value="'+iso(S.date)+'"></label>'
+  +'<label>時間帯 <select id="absP"><option value="all">終日</option><option value="am">午前だけ</option><option value="pm">午後だけ</option></select></label>'
+  +'<button class="btn p" id="absAdd">欠勤を追加</button><button class="btn" id="absClose">閉じる</button></div>'
+  +'<p>欠勤にした列は、予約表で「欠勤」と表示され、予約を入れられなくなります（すでに入っている予約はそのまま残ります）。</p><div id="abslist"></div>';
+ absList();
+}
+function absList(){
+ const el=$('abslist');if(!el||$('absform').hidden)return;
+ const st=STORES.find(x=>x.id===S.store),today=iso(new Date());
+ const rows=ABSL.filter(a=>a.store_id===S.store&&a.absence_date>=today).sort((a,b)=>a.absence_date<b.absence_date?-1:a.absence_date>b.absence_date?1:a.lane-b.lane);
+ const pl={all:'終日',am:'午前',pm:'午後'};
+ el.innerHTML=rows.length?'<ul style="list-style:none;margin:6px 0 0;padding:0">'+rows.map(a=>{const d=fromIso(a.absence_date);return '<li class="row" style="border-top:1px solid var(--line);padding:4px 0"><span>'+md(d)+'（'+'日月火水木金土'[d.getDay()]+'）</span><span>'+esc(st.staff[a.lane]||'（削除されたスタッフ）')+'</span><span>'+pl[a.part]+'</span><button class="btn d" data-adel="'+a.id+'">取り消し</button></li>'}).join('')+'</ul>':'<span class="empty">これからの欠勤の設定はありません</span>';
+}
+$('absbtn').onclick=()=>{$('absform').hidden=!$('absform').hidden;if(!$('absform').hidden)absOpen()};
+$('absform').onclick=async e=>{
+ const id=e.target.id;
+ if(id==='absClose'){$('absform').hidden=true;return}
+ if(e.target.dataset.adel){
+  if(!wr())return;
+  try{await API.delAbsence(e.target.dataset.adel)}catch(x){toast('取り消せませんでした。もう一度お試しください');return}
+  ABSL=ABSL.filter(a=>a.id!==e.target.dataset.adel);rebuildAbs();render();absList();toast('欠勤の設定を取り消しました');return}
+ if(id==='absAdd'){
+  if(!wr())return;
+  const lane=+$('absS').value,date=$('absD').value,part=$('absP').value;
+  if(!date){toast('日付を選んでください');return}
+  let r;
+  try{r=await API.addAbsence({store_id:S.store,absence_date:date,lane,part})}
+  catch(x){toast(x&&x.code==='23505'?'すでに設定されています':'設定できませんでした。もう一度お試しください');return}
+  ABSL.push(r);rebuildAbs();
+  const st=STORES.find(x=>x.id===S.store);
+  const n=Object.keys(B).filter(k=>{const q=keyParts(k);return !B[k].cont&&q.store===S.store&&q.date===date&&String(q.s)===String(lane)&&isAbsent(S.store,date,lane,q.t,st)}).length;
+  render();absList();
+  toast(st.staff[lane]+'さんを'+md(fromIso(date))+'の'+({all:'終日',am:'午前',pm:'午後'})[part]+'欠勤にしました'+(n?'（すでに予約が'+n+'件あります。そのまま残っています）':''));
+ }
+};
 $('csv').onchange=e=>{
  const file=e.target.files[0];if(!file)return;
  const rd=new FileReader();
