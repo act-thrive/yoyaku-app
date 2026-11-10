@@ -103,13 +103,14 @@ button{cursor:pointer}
 </div>
 <section id="staffView">
 <input id="q" placeholder="名前・ひらがな・フリガナ・管理番号で探す" autocomplete="off" aria-label="患者さんを探す">
-<div class="row" style="margin:6px 0"><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">患者データを取り込む（CSV）<input id="csv" type="file" accept=".csv,text/csv" hidden></label><button class="btn" id="newbtn">＋ 新規の患者さんを登録</button><button class="btn" id="plbtn">患者一覧</button><button class="btn" id="absbtn">スタッフの欠勤を設定</button></div>
+<div class="row" style="margin:6px 0"><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">患者データを取り込む（CSV）<input id="csv" type="file" accept=".csv,text/csv" hidden></label><button class="btn" id="newbtn">＋ 新規の患者さんを登録</button><button class="btn" id="plbtn">患者一覧</button><button class="btn" id="stbtn">スタッフの追加・削除</button><button class="btn" id="absbtn">スタッフの欠勤を設定</button></div>
 <p class="note" style="margin:0 0 6px">メープルのCSVを読み込むと、この店舗の患者さんとして保存されます。すでにいる方は飛ばされ、新しい方だけが追加されます。（名前などが変わっていれば更新されます）</p>
 <div id="nform" class="panel" hidden>
 <div class="row"><label>氏名 <input id="nn" class="fi" autocomplete="off"></label><label>フリガナ <input id="nk" class="fi" autocomplete="off"></label><button class="btn p" id="nsave">登録して選ぶ</button><button class="btn" id="ncancel">閉じる</button></div>
 <p>登録先の店舗：<span id="nstore"></span>。メープルの管理番号が決まったら、あとから登録して紐づけられます。</p>
 </div>
 <div id="plist" class="panel" hidden></div>
+<div id="stform" class="panel" hidden></div>
 <div id="absform" class="panel" hidden></div>
 <div id="sug"></div>
 <div id="patient"></div>
@@ -133,7 +134,7 @@ const holName=(st,d)=>st.hol&&st.days[d.getDay()]?(HOL[iso(d)]||''):'';
 const closedLabel=(st,d)=>holName(st,d)||'休診';
 const isOpenDay=(st,d)=>st.days[d.getDay()]&&!holName(st,d);
 const timeOpts=sel=>{let o='';ALLT.forEach(m=>{o+='<option value="'+m+'"'+(m===sel?' selected':'')+'>'+fmt(m)+'</option>'});return o};
-const cfg=st=>'<details class="cfg" data-d="'+st.id+'"'+(S.cfgOpen[st.id]?' open':'')+'><summary>スタッフ・営業時間・営業日を変更</summary><div class="row" style="margin:6px 0"><label>スタッフ名（カンマ区切り） <input type="text" class="fi" style="min-width:16em" data-c="'+st.id+'" data-f="staff" value="'+esc(st.staff.join('、'))+'"></label></div><p class="note" style="margin:0 0 6px">人数や順番を変えると、すでに入っている予約の担当列がずれることがあります。</p><div class="row" style="margin:6px 0">'+'日月火水木金土'.split('').map((w,i)=>'<label><input type="checkbox" data-c="'+st.id+'" data-f="day'+i+'"'+(st.days[i]?' checked':'')+'> '+w+'</label>').join('')+'<label><input type="checkbox" data-c="'+st.id+'" data-f="hol"'+(st.hol?' checked':'')+'> 祝日は休診</label></div><div class="row" style="margin:6px 0"><span>半日営業の曜日</span>'+'<label>週に1回 <select data-c="'+st.id+'" data-f="halfday">'+'日月火水木金土'.split('').map((w,i)=>'<option value="'+i+'"'+(st.half[i]?' selected':'')+'>'+w+'曜</option>').join('')+'</select></label>'+'</div><div class="row">'+[['first','開始'],['lastAm','午前の最終受付'],['pm','午後の開始'],['lastPm','午後の最終受付'],['halfEnd','半日営業の最終受付']].map(([f,l])=>'<label>'+l+' <select data-c="'+st.id+'" data-f="'+f+'">'+timeOpts(st[f])+'</select></label>').join('')+'</div><p class="note" style="margin:6px 0 0">最終受付の時刻の枠も予約できます。変更はこの店舗の受付画面にすぐ反映されます。</p></details>';
+const cfg=st=>'<details class="cfg" data-d="'+st.id+'"'+(S.cfgOpen[st.id]?' open':'')+'><summary>営業時間・営業日を変更</summary><div class="row" style="margin:6px 0">'+'日月火水木金土'.split('').map((w,i)=>'<label><input type="checkbox" data-c="'+st.id+'" data-f="day'+i+'"'+(st.days[i]?' checked':'')+'> '+w+'</label>').join('')+'<label><input type="checkbox" data-c="'+st.id+'" data-f="hol"'+(st.hol?' checked':'')+'> 祝日は休診</label></div><div class="row" style="margin:6px 0"><span>半日営業の曜日</span>'+'<label>週に1回 <select data-c="'+st.id+'" data-f="halfday">'+'日月火水木金土'.split('').map((w,i)=>'<option value="'+i+'"'+(st.half[i]?' selected':'')+'>'+w+'曜</option>').join('')+'</select></label>'+'</div><div class="row">'+[['first','開始'],['lastAm','午前の最終受付'],['pm','午後の開始'],['lastPm','午後の最終受付'],['halfEnd','半日営業の最終受付']].map(([f,l])=>'<label>'+l+' <select data-c="'+st.id+'" data-f="'+f+'">'+timeOpts(st[f])+'</select></label>').join('')+'</div><p class="note" style="margin:6px 0 0">最終受付の時刻の枠も予約できます。変更はこの店舗の受付画面にすぐ反映されます。</p></details>';
 const fmt=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -146,6 +147,11 @@ const S={role:'staff',store:'',date:new Date(),pid:null,sel:null,q:'',view:'day'
 S.date.setHours(0,0,0,0);
 let sb=null,ME=null;
 let ABSL=[];const ABS={};
+let LU=new Set();
+const hid=(st,i)=>!!(st.hid&&st.hid[i]);
+const lnm=(st,i)=>st.staff[i]+(hid(st,i)?'（削除済）':'');
+function luBuild(){LU=new Set();Object.keys(B).forEach(k=>{if(B[k].cont)return;const q=k.split('|');LU.add(q[1]+'|'+q[0]+'|'+q[2])})}
+function lanesFor(st,dates){const out=[];st.staff.forEach((_,i)=>{if(!hid(st,i)||(dates&&dates.some(d=>LU.has(st.id+'|'+(typeof d==='string'?d:iso(d))+'|'+i))))out.push(i)});return out}
 function rebuildAbs(){Object.keys(ABS).forEach(k=>delete ABS[k]);ABSL.forEach(a=>{const k=a.store_id+'|'+a.absence_date+'|'+a.lane;(ABS[k]=ABS[k]||{})[a.part]=1})}
 function isAbsent(store,d,lane,t,st){
  if(lane==='q')return false;
@@ -204,7 +210,7 @@ function detail(){
  const pb=b.cont?B[b.cont]:b;
  const [dk,,s,t]=S.sel.split('|'),dd=fromIso(dk);
  const pid=b.pid;
- $('detail').innerHTML=`<div class="panel row"><span>${esc(pn(pid))}さん　${md(dd)} ${fmt(+t)}　${s==='q'?'10分枠':STORES.find(x=>x.id===S.store).staff[+s]}</span>${MK.map(([f,l])=>`<label class="chk"><input type="checkbox" data-bm="${f}"${(pb&&pb.m&&pb.m[f])?' checked':''}> ${l}</label>`).join('')}<button class="btn d" id="cancel">予約を取り消す</button><button class="btn" id="close">閉じる</button></div>`;
+ $('detail').innerHTML=`<div class="panel row"><span>${esc(pn(pid))}さん　${md(dd)} ${fmt(+t)}　${s==='q'?'10分枠':lnm(STORES.find(x=>x.id===S.store),+s)}</span>${MK.map(([f,l])=>`<label class="chk"><input type="checkbox" data-bm="${f}"${(pb&&pb.m&&pb.m[f])?' checked':''}> ${l}</label>`).join('')}<button class="btn d" id="cancel">予約を取り消す</button><button class="btn" id="close">閉じる</button></div>`;
 }
 const mk=b=>{if(b.cont)return '<span class="nm" style="color:var(--mut)">↓</span>';const m=b.m||{};return '<span class="nm'+(m.n?' nw':'')+(m.j?' jh':'')+(m.k?' kc':'')+'">'+esc(pn(b.pid))+'</span>'+(m.r?'<i class="rs">レセ</i>':'')+(m.h?'<i class="hr">ハ</i>':'')};
 function table(){
@@ -226,8 +232,8 @@ function table(){
 }
 function weekTable(){
  const st=STORES.find(s=>s.id===S.store),w=wk0(S.date),days=[0,1,2,3,4,5,6].map(i=>addDays(w,i));
- if(S.ws>=st.staff.length)S.ws=0;
- $('wst').innerHTML='<option value="-1"'+(S.ws===-1?' selected':'')+'>全員</option><option value="-2"'+(S.ws===-2?' selected':'')+'>10分枠</option>'+st.staff.map((x,i)=>'<option value="'+i+'"'+(i===S.ws?' selected':'')+'>'+esc(x)+'</option>').join('');
+ const wlanes=lanesFor(st,days);if(S.ws>=0&&!wlanes.includes(S.ws))S.ws=wlanes.length?wlanes[0]:0;
+ $('wst').innerHTML='<option value="-1"'+(S.ws===-1?' selected':'')+'>全員</option><option value="-2"'+(S.ws===-2?' selected':'')+'>10分枠</option>'+wlanes.map(i=>'<option value="'+i+'"'+(i===S.ws?' selected':'')+'>'+esc(lnm(st,i))+'</option>').join('');
  $('tt').style.gridTemplateColumns='52px repeat(7,minmax(84px,1fr))';
  let h='<div class="hd"></div>'+days.map(d=>'<div class="hd">'+(d.getMonth()+1)+'/'+d.getDate()+'（'+'日月火水木金土'[d.getDay()]+'）</div>').join('');
  slotsOf(st).forEach(t=>{
@@ -237,8 +243,8 @@ function weekTable(){
    if(isBreak(st,t,d)){h+='<div class="cl">'+(t===(st.half[d.getDay()]?st.halfEnd:st.lastAm)+20?(st.half[d.getDay()]?'午後休み':'休憩'):'')+'</div>';return}
    if(S.ws===-2){h+='<div class="qc">'+[t,t+10].map((u,j)=>{if(j&&(isBreak(st,u,d)||t===st.lastPm))return '<div class="cl"></div>';const k=key(d,S.store,'q',u),b=B[k];return b?'<button class="bk'+(S.sel===k?' on':'')+'" data-k="'+k+'">'+mk(b)+'</button>':'<button class="em" data-s="q" data-t="'+u+'" data-d="'+iso(d)+'" aria-label="'+iso(d)+' '+fmt(u)+' 10分枠 空き"></button>'}).join('')+'</div>';return}
    if(S.ws===-1){
-    const bs=[];st.staff.forEach((nm,s)=>{const bb=B[key(d,S.store,s,t)];if(bb)bs.push(pn(bb.pid)+'（'+nm+'）')});
-    h+='<button class="'+(bs.length?'bk':'em')+'" data-a="1" data-t="'+t+'" data-d="'+iso(d)+'" title="'+esc(bs.join('、'))+'">'+(bs.length?bs.length+' / '+st.staff.length:'')+'</button>';return}
+    const bs=[];wlanes.forEach(s=>{const nm=lnm(st,s);const bb=B[key(d,S.store,s,t)];if(bb)bs.push(pn(bb.pid)+'（'+nm+'）')});
+    h+='<button class="'+(bs.length?'bk':'em')+'" data-a="1" data-t="'+t+'" data-d="'+iso(d)+'" title="'+esc(bs.join('、'))+'">'+(bs.length?bs.length+' / '+wlanes.length:'')+'</button>';return}
    const k=key(d,S.store,S.ws,t),b=B[k];
    if(!b&&isAbsent(S.store,d,S.ws,t,st)){h+=absCell(S.store,d,S.ws,t,st);return}
    if(b){h+='<button class="bk'+(S.sel===k?' on':'')+'" data-k="'+k+'">'+mk(b)+'</button>'}
@@ -248,27 +254,28 @@ function weekTable(){
  $('tt').innerHTML=h;
 }
 function sheetTable(){
- const st=STORES.find(s=>s.id===S.store),w=wk0(S.date),n=st.staff.length,c=n+1;
+ const st=STORES.find(s=>s.id===S.store),w=wk0(S.date);
  const days=[1,2,3,4,5,6].concat(st.days[0]?[0]:[]).map(i=>addDays(w,(i+6)%7));
+ const lanes=lanesFor(st,days),n=lanes.length,c=n+1;
  $('tt').style.gridTemplateColumns='52px repeat('+days.length*c+',minmax(60px,1fr))';
  const bd=' style="border-left:2px solid var(--ink)"';
  let h='<div class="hd"></div>'+days.map(d=>'<div class="hd" style="grid-column:span '+c+';border-left:2px solid var(--ink)">'+(d.getMonth()+1)+'/'+d.getDate()+'（'+'日月火水木金土'[d.getDay()]+'）</div>').join('');
- h+='<div class="hd"></div>'+days.map(()=>st.staff.map((x,i)=>'<div class="hd"'+(i?'':bd)+'>'+esc(x)+'</div>').join('')+'<div class="hd">10分</div>').join('');
+ h+='<div class="hd"></div>'+days.map(()=>lanes.map((x,i)=>'<div class="hd"'+(i?'':bd)+'>'+esc(lnm(st,x))+'</div>').join('')+'<div class="hd">10分</div>').join('');
  slotsOf(st).forEach(t=>{
   h+='<div class="tm">'+fmt(t)+'</div>';
   days.forEach(d=>{
    const closed=!isOpenDay(st,d),brk=isBreak(st,t,d);
-   for(let s=0;s<c;s++){
-    const b0=s===0?bd:'';
-    if(closed||brk){h+='<div class="cl"'+b0+'>'+(brk&&!closed&&s===0&&t===(st.half[d.getDay()]?st.halfEnd:st.lastAm)+20?(st.half[d.getDay()]?'午後休み':'休憩'):closed&&s===0&&t===st.first?closedLabel(st,d):'')+'</div>';continue}
-    if(s===n){
+   for(let si=0;si<c;si++){
+    const s=si<n?lanes[si]:'q',b0=si===0?bd:'';
+    if(closed||brk){h+='<div class="cl"'+b0+'>'+(brk&&!closed&&si===0&&t===(st.half[d.getDay()]?st.halfEnd:st.lastAm)+20?(st.half[d.getDay()]?'午後休み':'休憩'):closed&&si===0&&t===st.first?closedLabel(st,d):'')+'</div>';continue}
+    if(si===n){
      h+='<div class="qc">'+[t,t+10].map((u,j)=>{
       if(j&&(isBreak(st,u,d)||t===st.lastPm))return '<div class="cl"></div>';
       const k=key(d,S.store,'q',u),b=B[k];
       return b?'<button class="bk'+(S.sel===k?' on':'')+'" data-k="'+k+'">'+mk(b)+'</button>':'<button class="em" data-s="q" data-t="'+u+'" data-d="'+iso(d)+'" aria-label="'+iso(d)+' '+fmt(u)+' 10分枠 空き"></button>'}).join('')+'</div>';continue}
     const k=key(d,S.store,s,t),b=B[k];
     if(!b&&isAbsent(S.store,d,s,t,st)){h+=absCell(S.store,d,s,t,st,b0);continue}
-    h+=b?'<button class="bk'+(S.sel===k?' on':'')+'"'+b0+' data-k="'+k+'">'+mk(b)+'</button>':'<button class="em"'+b0+' data-s="'+s+'" data-t="'+t+'" data-d="'+iso(d)+'" aria-label="'+iso(d)+' '+esc(st.staff[s])+' '+fmt(t)+' 空き"></button>';
+    h+=b?'<button class="bk'+(S.sel===k?' on':'')+'"'+b0+' data-k="'+k+'">'+mk(b)+'</button>':'<button class="em"'+b0+' data-s="'+s+'" data-t="'+t+'" data-d="'+iso(d)+'" aria-label="'+iso(d)+' '+esc(lnm(st,s))+' '+fmt(t)+' 空き"></button>';
    }
   });
  });
@@ -281,8 +288,8 @@ function adminWeek(){
   h+='<tr><th>'+st.name+'</th>';
   days.forEach(d=>{
    if(!isOpenDay(st,d)){h+='<td class="cx">'+(holName(st,d)||'休診')+'</td>';return}
-   let n=0;st.staff.forEach((_,s)=>ALLT.forEach(t=>{if(B[key(d,st.id,s,t)])n++}));
-   const tot=openOf(st,d)*st.staff.length;
+   const ls=lanesFor(st,[d]);let n=0;ls.forEach(s=>ALLT.forEach(t=>{if(B[key(d,st.id,s,t)])n++}));
+   const tot=openOf(st,d)*ls.length;
    h+='<td><strong>'+n+'</strong> / '+tot+'<div class="meter"><i style="width:'+Math.min(100,Math.round(n/tot*100))+'%"></i></div></td>';
   });
   h+='</tr>';
@@ -294,11 +301,11 @@ function admin(){
  let h='';
  STORES.forEach(st=>{
   const rows=[];
-  st.staff.forEach((nm,s)=>ALLT.forEach(t=>{const b=B[key(S.date,st.id,s,t)];if(b)rows.push({t,nm,b})}));
+  lanesFor(st,[S.date]).forEach(s=>ALLT.forEach(t=>{const b=B[key(S.date,st.id,s,t)];if(b)rows.push({t,nm:lnm(st,s),b})}));
   ALLT10.forEach(t=>{const b=B[key(S.date,st.id,'q',t)];if(b)rows.push({t,nm:'10分枠',b})});
   rows.sort((a,b)=>a.t-b.t);
-  const total=openOf(st,S.date)*st.staff.length;
-  h+=`<div class="st"><h2><span>${st.name}（スタッフ${st.staff.length}人）</span><span>${rows.length} / ${total}枠</span></h2>
+  const total=openOf(st,S.date)*lanesFor(st,[S.date]).length;
+  h+=`<div class="st"><h2><span>${st.name}（スタッフ${st.staff.filter((_,i)=>!hid(st,i)).length}人）</span><span>${rows.length} / ${total}枠</span></h2>
   <div class="meter"><i style="width:${Math.min(100,Math.round(rows.length/total*100))}%"></i></div>
   ${rows.length?'<ul>'+rows.filter(r=>!r.b.cont).map(r=>`<li><span>${fmt(r.t)}</span><span>${esc(r.nm)}</span><span>${esc(pn(r.b.pid))}</span></li>`).join('')+'</ul>':'<span class="empty">'+(isOpenDay(st,S.date)?'この日の予約はありません':'この日は休診日です'+(holName(st,S.date)?'（'+holName(st,S.date)+'）':''))+'</span>'}${cfg(st)}</div>`;
  });
@@ -306,7 +313,7 @@ function admin(){
 }
 function render(){
  if(!S.admin&&S.role==='admin')S.role='staff';
- label();banner();
+ luBuild();label();banner();
  const staff=S.role==='staff';
  $('roleSeg').hidden=!S.admin;
  $('nstore').textContent=sname(S.store);
@@ -320,7 +327,7 @@ function render(){
 function wr(){if(S.canW)return true;toast('この画面は閲覧のみです');return false}
 function lastSlot(pid){let best=null;Object.keys(B).forEach(k=>{const b=B[k];if(b.cont||b.pid!==pid)return;if(!best||k>best)best=k});if(!best)return null;const p=keyParts(best);return {s:p.s==='q'?'q':+p.s,t:p.t}}
 
-const norm=r=>({id:r.id,name:r.name,staff:r.staff||[],days:r.days,half:r.half,hol:r.hol,first:r.first_min,lastAm:r.last_am,pm:r.pm_min,lastPm:r.last_pm,halfEnd:r.half_end});
+const norm=r=>({id:r.id,name:r.name,staff:r.staff||[],hid:r.staff_hidden||[],days:r.days,half:r.half,hol:r.hol,first:r.first_min,lastAm:r.last_am,pm:r.pm_min,lastPm:r.last_pm,halfEnd:r.half_end});
 async function pageAll(q){const out=[];for(let f=0;;f+=1000){const {data,error}=await q(f,f+999);if(error)throw error;out.push(...data);if(data.length<1000)break}return out}
 const API={
  async login(email,pw){const {data,error}=await sb.auth.signInWithPassword({email,password:pw});if(error)throw error;return data.user},
@@ -347,7 +354,8 @@ const API={
    for(const x of ch){const r2=await sb.from('patients').upsert(x,{onConflict:'kanri_no',ignoreDuplicates:true});if(r2.error)fail++;else ok++}}
   return {ok,fail}},
  async updatePatientName(id,name,kana){const {error}=await sb.from('patients').update({name,kana}).eq('id',id);if(error)throw error},
- async saveStore(st){const {error}=await sb.from('stores').update({staff:st.staff,days:st.days,half:st.half,hol:st.hol,first_min:st.first,last_am:st.lastAm,pm_min:st.pm,last_pm:st.lastPm,half_end:st.halfEnd}).eq('id',st.id);if(error)throw error},
+ async setStaff(id,staff,hidden){const {error}=await sb.rpc('set_store_staff',{p_store:id,p_staff:staff,p_hidden:hidden});if(error)throw error},
+ async saveStore(st){const {error}=await sb.from('stores').update({days:st.days,half:st.half,hol:st.hol,first_min:st.first,last_am:st.lastAm,pm_min:st.pm,last_pm:st.lastPm,half_end:st.halfEnd}).eq('id',st.id);if(error)throw error},
  async absences(from,to){const {data,error}=await sb.from('staff_absences').select('id,store_id,absence_date,lane,part').gte('absence_date',from).lte('absence_date',to).order('absence_date');if(error)throw error;return data},
  async addAbsence(row){const {data,error}=await sb.from('staff_absences').insert(row).select('id,store_id,absence_date,lane,part').single();if(error)throw error;return data},
  async addAbsences(rows){const {data,error}=await sb.from('staff_absences').upsert(rows,{onConflict:'store_id,absence_date,lane,part',ignoreDuplicates:true}).select('id,store_id,absence_date,lane,part');if(error)throw error;return data},
@@ -371,7 +379,7 @@ let rT=null,rBusy=false;
 function scheduleReload(){clearTimeout(rT);rT=setTimeout(reload,300)}
 async function reload(){
  if(rBusy)return;rBusy=true;
- try{const [rows,ab]=await Promise.all([API.appts(S.rf,S.rt),API.absences(S.rf,S.rt).catch(()=>ABSL)]);rebuild(rows);ABSL=ab;rebuildAbs();S.mode='live'}catch(e){S.mode='error'}
+ try{const [rows,ab,srows]=await Promise.all([API.appts(S.rf,S.rt),API.absences(S.rf,S.rt).catch(()=>ABSL),API.stores().catch(()=>null)]);if(srows)srows.forEach(r=>{const o=STORES.find(x=>x.id===r.id);if(o)Object.assign(o,norm(r))});rebuild(rows);ABSL=ab;rebuildAbs();S.mode='live'}catch(e){S.mode='error'}
  rBusy=false;render();absList();
 }
 function ensureRange(){
@@ -403,7 +411,7 @@ async function book(s,t,pid,date){
  B[k]={pid,m:marks,span:two?2:1,id};
  if(two)B[k2]={pid,cont:k};
  S.mk={j:0,h:0,r:0,n:0};
- toast(pn(pid)+'さんを予約しました　'+fmt(t)+'　'+(s==='q'?'10分枠':st0.staff[s]));
+ toast(pn(pid)+'さんを予約しました　'+fmt(t)+'　'+(s==='q'?'10分枠':lnm(st0,s)));
  return true;
 }
 async function unbook(k){
@@ -438,7 +446,7 @@ async function linkNew(p,num){
  toast((now?now.n+'さん':'管理番号 '+num)+'に紐づけました');
 }
 
-$('myStore').onchange=e=>{S.store=e.target.value;try{localStorage.setItem('rsv_store',S.store)}catch(x){}S.ws=0;S.pid=null;S.sel=null;S.q='';$('q').value='';sugg();render();plRender(true);if(!$('absform').hidden)absOpen()};
+$('myStore').onchange=e=>{S.store=e.target.value;try{localStorage.setItem('rsv_store',S.store)}catch(x){}S.ws=0;S.pid=null;S.sel=null;S.q='';$('q').value='';sugg();render();plRender(true);if(!$('absform').hidden)absOpen();if(!$('stform').hidden)stOpen()};
 $('prev').onclick=()=>{S.date=addDays(S.date,(S.role==='staff'||S.view!=='day')?-7:-1);S.sel=null;ensureRange();render()};
 $('next').onclick=()=>{S.date=addDays(S.date,(S.role==='staff'||S.view!=='day')?7:1);S.sel=null;ensureRange();render()};
 $('today').onclick=()=>{S.date=new Date();S.date.setHours(0,0,0,0);S.sel=null;ensureRange();render()};
@@ -483,8 +491,8 @@ $('tt').onclick=async e=>{
  if(b.dataset.a){
   const st=STORES.find(x=>x.id===S.store),d=fromIso(b.dataset.d),t=+b.dataset.t;
   if(!S.pid){toast(b.title||'この時間の予約はありません');return}
-  const s=st.staff.findIndex((_,i)=>!B[key(d,S.store,i,t)]);
-  if(s<0){toast('この時間は全員の枠が埋まっています');return}
+  const s=lanesFor(st,null).find(i=>!B[key(d,S.store,i,t)]&&!isAbsent(S.store,d,i,t,st));
+  if(s===undefined){toast('この時間は全員の枠が埋まっています');return}
   if(await book(s,t,S.pid,d)){S.sel=null;render()}
   return}
  if(b.dataset.k){S.sel=S.sel===b.dataset.k?null:b.dataset.k;render();return}
@@ -529,6 +537,65 @@ $('plist').onclick=e=>{
  const p=P.find(x=>String(x.id)===b.dataset.pl);if(!p)return;
  S.pid=p.id;S.mk={j:0,h:0,r:0,n:p.nw?1:0};S.sel=null;S.psig='';$('plist').hidden=true;render();window.scrollTo({top:0,behavior:'smooth'});
 };
+let STP=null;
+function stOpen(){
+ const st=STORES.find(x=>x.id===S.store);STP=null;
+ $('stform').innerHTML='<div class="row"><strong>'+esc(st.name)+'のスタッフ</strong><button class="btn" id="stClose">閉じる</button></div><div id="stlist"></div>'
+  +'<div class="row" style="margin-top:8px"><label>追加するスタッフ名 <input id="stNew" class="fi" maxlength="20" autocomplete="off"></label><button class="btn p" id="stAdd">スタッフを追加</button></div>'
+  +'<p>名前を直すと、過去の予約の表示も新しい名前になります。「削除」すると、その列は予約表から外れます。これからの予約が残っている列は、削除できません（先に取り消すか、別の日に移してください）。過去の予約がある週には、「（削除済）」と付いて表示されます。</p>';
+ stList();
+}
+function stList(){
+ const el=$('stlist');if(!el||$('stform').hidden)return;
+ const st=STORES.find(x=>x.id===S.store);
+ el.innerHTML=st.staff.map((nm,i)=>'<div class="row" style="border-top:1px solid var(--line);padding:6px 0">'
+  +(hid(st,i)?'<span style="min-width:11em;color:var(--mut)">'+esc(nm)+'（削除済）</span><button class="btn" data-strestore="'+i+'">元に戻す</button>'
+   :'<input class="fi" data-stname="'+i+'" value="'+esc(nm)+'" maxlength="20" aria-label="スタッフ名"><button class="btn d" data-stdel="'+i+'">'+(STP===i?'本当に削除する':'削除')+'</button>')+'</div>').join('');
+}
+async function stSave(st,staff,hidden,okMsg){
+ try{await API.setStaff(st.id,staff,hidden)}
+ catch(e){const m=(e&&e.message)||'';toast(/[぀-ヿ一-鿿]/.test(m)?m:'変更できませんでした。もう一度お試しください');stList();return false}
+ st.staff=staff;st.hid=hidden;S.psig='';render();stList();toast(okMsg);return true;
+}
+$('stbtn').onclick=()=>{$('stform').hidden=!$('stform').hidden;if(!$('stform').hidden)stOpen()};
+$('stform').onclick=async e=>{
+ const st=STORES.find(x=>x.id===S.store);
+ const H=()=>st.staff.map((_,i)=>hid(st,i));
+ if(e.target.id==='stClose'){$('stform').hidden=true;return}
+ if(e.target.id==='stAdd'){
+  if(!wr())return;
+  const nm=$('stNew').value.trim();
+  if(!nm){toast('スタッフ名を入力してください');return}
+  if(st.staff.length>=12){toast('スタッフの列は12までです');return}
+  if(await stSave(st,st.staff.concat([nm]),H().concat([false]),nm+'さんを追加しました'))$('stNew').value='';
+  return}
+ if(e.target.dataset.stdel!==undefined){
+  if(!wr())return;
+  const i=+e.target.dataset.stdel;
+  if(STP!==i){STP=i;stList();setTimeout(()=>{if(STP===i){STP=null;stList()}},4000);return}
+  STP=null;
+  const h=H();h[i]=true;
+  if(!h.some(x=>!x)){toast('スタッフを全員削除することはできません');stList();return}
+  const today=iso(new Date());
+  const n=Object.keys(B).filter(k=>{const q=keyParts(k);return !B[k].cont&&q.store===S.store&&String(q.s)===String(i)&&q.date>=today}).length;
+  if(n){toast(st.staff[i]+'さんの列には、これからの予約が'+n+'件あります。先に取り消すか、別の日に移してください');stList();return}
+  await stSave(st,st.staff.slice(),h,st.staff[i]+'さんを削除しました');
+  return}
+ if(e.target.dataset.strestore!==undefined){
+  if(!wr())return;
+  const i=+e.target.dataset.strestore,h=H();h[i]=false;
+  await stSave(st,st.staff.slice(),h,st.staff[i]+'さんを元に戻しました');
+ }
+};
+$('stform').onchange=async e=>{
+ const i=e.target.dataset.stname;if(i===undefined)return;
+ const st=STORES.find(x=>x.id===S.store),nm=e.target.value.trim();
+ if(!wr())return;
+ if(!nm){e.target.value=st.staff[+i];toast('スタッフ名を入力してください');return}
+ if(nm===st.staff[+i])return;
+ const staff=st.staff.slice();staff[+i]=nm;
+ if(!await stSave(st,staff,st.staff.map((_,k)=>hid(st,k)),'名前を変更しました'))e.target.value=st.staff[+i];
+};
 let ABSD=[];
 function absChips(){
  const el=$('abschips');if(!el)return;ABSD.sort();
@@ -537,7 +604,7 @@ function absChips(){
 function absOpen(){
  const st=STORES.find(x=>x.id===S.store);
  ABSD=[];
- $('absform').innerHTML='<div class="row"><label>スタッフ <select id="absS">'+st.staff.map((x,i)=>'<option value="'+i+'">'+esc(x)+'</option>').join('')+'</select></label>'
+ $('absform').innerHTML='<div class="row"><label>スタッフ <select id="absS">'+st.staff.map((x,i)=>hid(st,i)?'':'<option value="'+i+'">'+esc(x)+'</option>').join('')+'</select></label>'
   +'<label>時間帯 <select id="absP"><option value="all">終日</option><option value="am">午前だけ</option><option value="pm">午後だけ</option></select></label></div>'
   +'<div class="row" style="margin-top:8px"><label>日付 <input type="date" id="absD" class="fi" value="'+iso(S.date)+'"></label><button class="btn" id="absOne">日付を追加</button></div>'
   +'<div class="row" style="margin-top:8px"><label>期間 <input type="date" id="absF" class="fi" value="'+iso(S.date)+'"></label>〜<input type="date" id="absT" class="fi" value="'+iso(S.date)+'" aria-label="期間の終わり"></div>'
@@ -624,10 +691,6 @@ $('adminView').onchange=e=>{
  const t=e.target,id=t.dataset.c;if(!id)return;
  if(!S.admin){toast('設定を変更できるのは管理者だけです');admin();return}
  const st=STORES.find(s=>s.id===id),f=t.dataset.f;
- if(f==='staff'){
-  const names=t.value.split(/[,、，\n]+/).map(x=>x.trim()).filter(Boolean).slice(0,8);
-  if(!names.length){toast('スタッフ名を1人以上入力してください');admin();return}
-  st.staff=names;saveSettings(st);admin();return}
  if(f.startsWith('day')){st.days[+f.slice(3)]=t.checked;saveSettings(st);admin();return}
  if(f==='hol'){st.hol=t.checked;saveSettings(st);admin();return}
  if(f==='halfday'){st.half=[0,1,2,3,4,5,6].map(i=>i===+t.value);saveSettings(st);admin();return}
