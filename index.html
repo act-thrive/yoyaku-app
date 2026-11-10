@@ -102,13 +102,14 @@ button{cursor:pointer}
 <label id="wsWrap" hidden>スタッフ <select id="wst"></select></label>
 </div>
 <section id="staffView">
-<input id="q" placeholder="患者さんの名前（ひらがな可）・管理番号" autocomplete="off" aria-label="患者さんを探す">
-<div class="row" style="margin:6px 0"><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">患者データを取り込む（CSV）<input id="csv" type="file" accept=".csv,text/csv" hidden></label><button class="btn" id="newbtn">＋ 新規の患者さんを登録</button><button class="btn" id="absbtn">スタッフの欠勤を設定</button></div>
+<input id="q" placeholder="名前・ひらがな・フリガナ・管理番号で探す" autocomplete="off" aria-label="患者さんを探す">
+<div class="row" style="margin:6px 0"><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">患者データを取り込む（CSV）<input id="csv" type="file" accept=".csv,text/csv" hidden></label><button class="btn" id="newbtn">＋ 新規の患者さんを登録</button><button class="btn" id="plbtn">患者一覧</button><button class="btn" id="absbtn">スタッフの欠勤を設定</button></div>
 <p class="note" style="margin:0 0 6px">メープルのCSVを読み込むと、この店舗の患者さんとして保存されます。すでにいる方は飛ばされ、新しい方だけが追加されます。（名前などが変わっていれば更新されます）</p>
 <div id="nform" class="panel" hidden>
 <div class="row"><label>氏名 <input id="nn" class="fi" autocomplete="off"></label><label>フリガナ <input id="nk" class="fi" autocomplete="off"></label><button class="btn p" id="nsave">登録して選ぶ</button><button class="btn" id="ncancel">閉じる</button></div>
 <p>登録先の店舗：<span id="nstore"></span>。メープルの管理番号が決まったら、あとから登録して紐づけられます。</p>
 </div>
+<div id="plist" class="panel" hidden></div>
 <div id="absform" class="panel" hidden></div>
 <div id="sug"></div>
 <div id="patient"></div>
@@ -168,11 +169,20 @@ function banner(){
  $('mode').textContent=m+(S.mode==='loading'?'':'　ログイン：'+((ME&&ME.email)||'')+'（'+role+(S.admin?'':'・'+sname(S.store))+'）');
 }
 function pats(){return P.filter(p=>p.s===S.store).sort((a,b)=>(b.nw?1:0)-(a.nw?1:0))}
-const kh=s=>String(s).replace(/[\u30A1-\u30F6]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60)).replace(/[\s\u3000]/g,'').toLowerCase();
+const kh=s=>String(s).normalize('NFKC').replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60)).replace(/[\s　]/g,'').toLowerCase();
+const z0=s=>String(s).replace(/^0+(?=\d)/,'');
 function sugg(){
- const q=kh(S.q);
- const list=pats().filter(p=>!q||kh(p.n+p.k+(p.c||'')).includes(q)).slice(0,6);
- $('sug').innerHTML=list.length?list.map(p=>`<button class="btn" data-p="${esc(p.id)}">${esc(p.n)}${p.nw?'（新規）':''}</button>`).join(''):'<span class="empty">該当する患者さんがいません</span>';
+ const q=kh(S.q),qn=/^\d+$/.test(q)?z0(q):null;
+ const score=p=>{
+  if(!q)return 5;
+  const c=p.c?kh(p.c):'';
+  if(c&&qn!==null){if(c===q||z0(c)===qn)return 0;if(c.startsWith(q)||z0(c).startsWith(qn))return 1;if(c.includes(q)||z0(c).includes(qn))return 2}
+  const t=kh(p.n+p.k+c);
+  if(t.includes(q))return kh(p.n).startsWith(q)||kh(p.k).startsWith(q)?3:4;
+  return -1};
+ const all=pats().map(p=>[score(p),p]).filter(x=>x[0]>=0).sort((a,b)=>a[0]-b[0]||(b[1].nw?1:0)-(a[1].nw?1:0));
+ const list=all.slice(0,10).map(x=>x[1]);
+ $('sug').innerHTML=list.length?list.map(p=>`<button class="btn" data-p="${esc(p.id)}">${esc(p.n)}${p.nw?'（新規）':''}${p.c?'<small style="font-weight:400"> No.'+esc(p.c)+'</small>':''}</button>`).join('')+(all.length>10?'<span class="note" style="margin:0;align-self:center">ほか'+(all.length-10)+'人。さらに絞り込んでください</span>':''):'<span class="empty">該当する患者さんがいません</span>';
 }
 const MK=[['j','実費'],['k','実費更新日'],['h','鍼'],['r','レセ（今月初診）'],['n','新規']];
 function patient(){
@@ -305,7 +315,7 @@ function render(){
  document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.view===S.view));
  $('wsWrap').hidden=!(staff&&S.view==='week');
  $('tt').classList.toggle('sheet',S.view!=='week'||S.ws===-2);
- if(staff){patient();detail();S.view==='week'?weekTable():sheetTable()}else admin();
+ if(staff){patient();detail();S.view==='week'?weekTable():sheetTable();plRender()}else admin();
 }
 function wr(){if(S.canW)return true;toast('この画面は閲覧のみです');return false}
 function lastSlot(pid){let best=null;Object.keys(B).forEach(k=>{const b=B[k];if(b.cont||b.pid!==pid)return;if(!best||k>best)best=k});if(!best)return null;const p=keyParts(best);return {s:p.s==='q'?'q':+p.s,t:p.t}}
@@ -340,6 +350,7 @@ const API={
  async saveStore(st){const {error}=await sb.from('stores').update({staff:st.staff,days:st.days,half:st.half,hol:st.hol,first_min:st.first,last_am:st.lastAm,pm_min:st.pm,last_pm:st.lastPm,half_end:st.halfEnd}).eq('id',st.id);if(error)throw error},
  async absences(from,to){const {data,error}=await sb.from('staff_absences').select('id,store_id,absence_date,lane,part').gte('absence_date',from).lte('absence_date',to).order('absence_date');if(error)throw error;return data},
  async addAbsence(row){const {data,error}=await sb.from('staff_absences').insert(row).select('id,store_id,absence_date,lane,part').single();if(error)throw error;return data},
+ async addAbsences(rows){const {data,error}=await sb.from('staff_absences').upsert(rows,{onConflict:'store_id,absence_date,lane,part',ignoreDuplicates:true}).select('id,store_id,absence_date,lane,part');if(error)throw error;return data},
  async delAbsence(id){const {error}=await sb.from('staff_absences').delete().eq('id',id);if(error)throw error},
  subscribe(cb){sb.channel('appts').on('postgres_changes',{event:'*',schema:'public',table:'appointments'},cb).on('postgres_changes',{event:'*',schema:'public',table:'staff_absences'},cb).subscribe()}
 };
@@ -427,7 +438,7 @@ async function linkNew(p,num){
  toast((now?now.n+'さん':'管理番号 '+num)+'に紐づけました');
 }
 
-$('myStore').onchange=e=>{S.store=e.target.value;try{localStorage.setItem('rsv_store',S.store)}catch(x){}S.ws=0;S.pid=null;S.sel=null;S.q='';$('q').value='';sugg();render();if(!$('absform').hidden)absOpen()};
+$('myStore').onchange=e=>{S.store=e.target.value;try{localStorage.setItem('rsv_store',S.store)}catch(x){}S.ws=0;S.pid=null;S.sel=null;S.q='';$('q').value='';sugg();render();plRender(true);if(!$('absform').hidden)absOpen()};
 $('prev').onclick=()=>{S.date=addDays(S.date,(S.role==='staff'||S.view!=='day')?-7:-1);S.sel=null;ensureRange();render()};
 $('next').onclick=()=>{S.date=addDays(S.date,(S.role==='staff'||S.view!=='day')?7:1);S.sel=null;ensureRange();render()};
 $('today').onclick=()=>{S.date=new Date();S.date.setHours(0,0,0,0);S.sel=null;ensureRange();render()};
@@ -488,14 +499,54 @@ $('patient').onchange=e=>{const f=e.target.dataset.mk;if(f)S.mk[f]=e.target.chec
 $('detail').onchange=e=>{const f=e.target.dataset.bm;if(!f||!S.sel)return;setMark(S.sel,f,e.target.checked?1:0)};
 function parseCsv(t){const r=[];let row=[],f='',q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}else if(c==='"')q=true;else if(c===','){row.push(f);f=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(f);f='';r.push(row);row=[]}else f+=c}if(f!==''||row.length){row.push(f);r.push(row)}return r}
 function decodeBuf(buf){try{return new TextDecoder('utf-8',{fatal:true}).decode(buf)}catch(e){return new TextDecoder('shift_jis').decode(buf)}}
+const GYO=[['あ','あいうえおぁぃぅぇぉゔ'],['か','かきくけこ'],['さ','さしすせそ'],['た','たちつてとっ'],['な','なにぬねの'],['は','はひふへほ'],['ま','まみむめも'],['や','やゆよゃゅょ'],['ら','らりるれろ'],['わ','わをん']];
+function gyoOf(p){
+ const t=kh(p.k||'');if(!t)return '他';
+ const c=t.normalize('NFD')[0];
+ for(const [g,cs] of GYO)if(cs.includes(c))return g;
+ return '他';
+}
+const PL={gy:'あ',n:200,sig:''};
+function plRender(force){
+ const el=$('plist');if(el.hidden)return;
+ const list=pats(),sig=S.store+'|'+PL.gy+'|'+PL.n+'|'+list.length+'|'+list.map(p=>p.n+p.k+(p.c||'')).join('').length;
+ if(!force&&sig===PL.sig)return;PL.sig=sig;
+ const cnt={};list.forEach(p=>{const g=gyoOf(p);cnt[g]=(cnt[g]||0)+1});
+ const tabs=GYO.map(x=>x[0]).concat(['他']);
+ const rows=list.filter(p=>gyoOf(p)===PL.gy).sort((a,b)=>kh(a.k||a.n).localeCompare(kh(b.k||b.n),'ja'));
+ const show=rows.slice(0,PL.n);
+ el.innerHTML='<div class="row"><strong>患者一覧（'+esc(sname(S.store))+'・'+list.length+'人）</strong><button class="btn" id="plClose">閉じる</button></div>'
+  +'<div class="row" style="margin:8px 0">'+tabs.map(g=>'<button class="btn" data-gy="'+g+'" aria-pressed="'+(g===PL.gy)+'" style="min-width:48px'+(g===PL.gy?';background:var(--pri);color:var(--pi);font-weight:700':'')+'">'+(g==='他'?'他':g+'行')+(cnt[g]?'<small style="font-weight:400"> '+cnt[g]+'</small>':'')+'</button>').join('')+'</div>'
+  +(show.length?'<div style="display:grid;gap:6px;max-height:50vh;overflow:auto">'+show.map(p=>'<button class="btn" data-pl="'+esc(p.id)+'" style="text-align:left;display:flex;gap:12px;flex-wrap:wrap"><span style="min-width:8em">'+esc(p.n)+(p.nw?'（新規）':'')+'</span><span class="note" style="margin:0">'+esc(p.k||'')+'</span><span class="note" style="margin:0">'+(p.c?'No.'+esc(p.c):'')+'</span></button>').join('')+'</div>'+(rows.length>show.length?'<button class="btn" id="plMore" style="margin-top:8px">さらに表示（残り'+(rows.length-show.length)+'人）</button>':''):'<span class="empty">この行の患者さんはいません</span>');
+}
+$('plbtn').onclick=()=>{$('plist').hidden=!$('plist').hidden;if(!$('plist').hidden){PL.n=200;plRender(true)}};
+$('plist').onclick=e=>{
+ const g=e.target.closest('[data-gy]');
+ if(g){PL.gy=g.dataset.gy;PL.n=200;plRender(true);return}
+ if(e.target.closest('#plClose')){$('plist').hidden=true;return}
+ if(e.target.closest('#plMore')){PL.n+=200;plRender(true);return}
+ const b=e.target.closest('[data-pl]');if(!b)return;
+ const p=P.find(x=>String(x.id)===b.dataset.pl);if(!p)return;
+ S.pid=p.id;S.mk={j:0,h:0,r:0,n:p.nw?1:0};S.sel=null;S.psig='';$('plist').hidden=true;render();window.scrollTo({top:0,behavior:'smooth'});
+};
+let ABSD=[];
+function absChips(){
+ const el=$('abschips');if(!el)return;ABSD.sort();
+ el.innerHTML=ABSD.length?ABSD.map(d=>{const x=fromIso(d);return '<button class="btn" data-adrop="'+d+'" aria-label="'+md(x)+'を外す">'+md(x)+'（'+'日月火水木金土'[x.getDay()]+'） ×</button>'}).join(' '):'<span class="empty">日付を選んで「日付を追加」を押してください</span>';
+}
 function absOpen(){
  const st=STORES.find(x=>x.id===S.store);
+ ABSD=[];
  $('absform').innerHTML='<div class="row"><label>スタッフ <select id="absS">'+st.staff.map((x,i)=>'<option value="'+i+'">'+esc(x)+'</option>').join('')+'</select></label>'
-  +'<label>日付 <input type="date" id="absD" class="fi" value="'+iso(S.date)+'"></label>'
-  +'<label>時間帯 <select id="absP"><option value="all">終日</option><option value="am">午前だけ</option><option value="pm">午後だけ</option></select></label>'
-  +'<button class="btn p" id="absAdd">欠勤を追加</button><button class="btn" id="absClose">閉じる</button></div>'
+  +'<label>時間帯 <select id="absP"><option value="all">終日</option><option value="am">午前だけ</option><option value="pm">午後だけ</option></select></label></div>'
+  +'<div class="row" style="margin-top:8px"><label>日付 <input type="date" id="absD" class="fi" value="'+iso(S.date)+'"></label><button class="btn" id="absOne">日付を追加</button></div>'
+  +'<div class="row" style="margin-top:8px"><label>期間 <input type="date" id="absF" class="fi" value="'+iso(S.date)+'"></label>〜<input type="date" id="absT" class="fi" value="'+iso(S.date)+'" aria-label="期間の終わり"></div>'
+  +'<div class="row" style="margin-top:4px"><span>曜日</span>'+[1,2,3,4,5,6,0].filter(i=>st.days[i]).map(i=>'<label class="chk"><input type="checkbox" data-wd="'+i+'" checked> '+'日月火水木金土'[i]+'</label>').join('')+'<button class="btn" id="absRange">期間と曜日で追加</button></div>'
+  +'<p>期間の中で、チェックした曜日の日だけが追加されます（たとえば毎週水曜だけ休みなら、水曜以外のチェックを外します）。1回で選べるのは62日分までです。外すときは、日付を押します。</p>'
+  +'<div id="abschips" class="row" style="margin:6px 0"></div>'
+  +'<div class="row"><button class="btn p" id="absAdd">選んだ日を欠勤にする</button><button class="btn" id="absClose">閉じる</button></div>'
   +'<p>欠勤にした列は、予約表で「欠勤」と表示され、予約を入れられなくなります（すでに入っている予約はそのまま残ります）。</p><div id="abslist"></div>';
- absList();
+ absChips();absList();
 }
 function absList(){
  const el=$('abslist');if(!el||$('absform').hidden)return;
@@ -512,18 +563,32 @@ $('absform').onclick=async e=>{
   if(!wr())return;
   try{await API.delAbsence(e.target.dataset.adel)}catch(x){toast('取り消せませんでした。もう一度お試しください');return}
   ABSL=ABSL.filter(a=>a.id!==e.target.dataset.adel);rebuildAbs();render();absList();toast('欠勤の設定を取り消しました');return}
+ if(id==='absOne'){
+  const d=$('absD').value;if(!d){toast('日付を選んでください');return}
+  if(ABSD.length>=62){toast('一度に選べるのは62日までです');return}
+  if(!ABSD.includes(d))ABSD.push(d);absChips();return}
+ if(id==='absRange'){
+  const f=$('absF').value,t=$('absT').value;
+  if(!f||!t||f>t){toast('期間の始まりと終わりを正しく選んでください');return}
+  const st=STORES.find(x=>x.id===S.store);let d=fromIso(f),n=0;const end=fromIso(t);
+  const wd=new Set([...document.querySelectorAll('[data-wd]:checked')].map(x=>+x.dataset.wd));
+  if(!wd.size){toast('曜日を1つ以上選んでください');return}
+  while(d<=end){if(st.days[d.getDay()]&&wd.has(d.getDay())){const k=iso(d);if(!ABSD.includes(k)){if(ABSD.length>=62){toast('一度に選べるのは62日までです');break}ABSD.push(k);n++}}d=addDays(d,1)}
+  absChips();toast(n+'日を追加しました');return}
+ if(e.target.dataset.adrop){ABSD=ABSD.filter(x=>x!==e.target.dataset.adrop);absChips();return}
  if(id==='absAdd'){
   if(!wr())return;
-  const lane=+$('absS').value,date=$('absD').value,part=$('absP').value;
-  if(!date){toast('日付を選んでください');return}
-  let r;
-  try{r=await API.addAbsence({store_id:S.store,absence_date:date,lane,part})}
-  catch(x){toast(x&&x.code==='23505'?'すでに設定されています':'設定できませんでした。もう一度お試しください');return}
-  ABSL.push(r);rebuildAbs();
+  const lane=+$('absS').value,part=$('absP').value;
+  if(!ABSD.length){toast('日付を選んでください');return}
+  const dates=ABSD.slice(),rows=dates.map(d=>({store_id:S.store,absence_date:d,lane,part}));
+  let res;
+  try{res=await API.addAbsences(rows)}catch(x){toast('設定できませんでした。もう一度お試しください');return}
+  res.forEach(r=>ABSL.push(r));rebuildAbs();
   const st=STORES.find(x=>x.id===S.store);
-  const n=Object.keys(B).filter(k=>{const q=keyParts(k);return !B[k].cont&&q.store===S.store&&q.date===date&&String(q.s)===String(lane)&&isAbsent(S.store,date,lane,q.t,st)}).length;
-  render();absList();
-  toast(st.staff[lane]+'さんを'+md(fromIso(date))+'の'+({all:'終日',am:'午前',pm:'午後'})[part]+'欠勤にしました'+(n?'（すでに予約が'+n+'件あります。そのまま残っています）':''));
+  const n=Object.keys(B).filter(k=>{const q=keyParts(k);return !B[k].cont&&q.store===S.store&&dates.includes(q.date)&&String(q.s)===String(lane)&&isAbsent(S.store,q.date,lane,q.t,st)}).length;
+  const skip=rows.length-res.length;
+  ABSD=[];absChips();render();absList();
+  toast(st.staff[lane]+'さんを'+res.length+'日分、欠勤にしました'+(skip?'（'+skip+'日はすでに設定済み）':'')+(n?'（すでに予約が'+n+'件あります。そのまま残っています）':''));
  }
 };
 $('csv').onchange=e=>{
@@ -539,7 +604,7 @@ $('csv').onchange=e=>{
   const add=[],upd=[],seen={};
   rows.slice(1).forEach(r=>{
    const num=(r[a]||'').trim(),nm=(r[b]||'').trim();if(!num||!nm||seen[num])return;seen[num]=1;
-   const kn=c>=0?(r[c]||'').trim():'',ex=known[num];
+   const kn=c>=0?(r[c]||'').normalize('NFKC').trim():'',ex=known[num];
    if(ex){if(ex.n!==nm||(c>=0&&ex.k!==kn))upd.push([ex,nm,kn])}else add.push({kanri_no:num,name:nm,kana:kn,store_id:S.store});
   });
   toast('取り込み中です…');
