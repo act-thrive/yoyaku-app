@@ -45,7 +45,7 @@ button{cursor:pointer}
 .hd.h2{top:var(--h1,36px)}
 .hd.cn{left:0;z-index:5}
 .tm{position:sticky;left:0;z-index:2;background:var(--sf)}
-.tm{font-size:12px;color:var(--mut);padding:8px 6px 0;border-top:1px solid var(--line);height:40px;box-sizing:border-box}
+.tm{font-size:15px;font-weight:700;color:var(--ink);padding:6px 4px 0;border-top:1px solid var(--line);height:40px;box-sizing:border-box}
 .tt button,.cl{height:40px;box-sizing:border-box;border:0;border-top:1px solid var(--line);border-left:1px solid var(--line);margin:0;border-radius:0;font-size:14px}
 .em{background:var(--sf)}
 .em:hover{background:var(--hi)}
@@ -76,7 +76,9 @@ button{cursor:pointer}
 .sheet .qc button,.sheet .qc .cl{height:auto;border:0;border-top:1px dashed var(--line);font-size:11px;padding:0 3px;overflow:hidden}
 .sheet .qc>:first-child{border-top:0}
 .bk{position:relative}
-.bk .nm{padding-right:14px}
+.bk .nm{padding-right:14px;display:block;overflow:hidden;text-overflow:ellipsis}
+.bk .no{display:block;font-size:11px;font-weight:600;color:var(--mut);line-height:1.2;overflow:hidden;text-overflow:ellipsis}
+.qc .bk .nm,.qc .bk .no{display:inline}.qc .bk .no{margin-left:3px}
 .nm.nw{color:var(--bad)}
 .nm.kc{box-shadow:0 0 0 2px #E8C53A;border-radius:10px;padding:0 5px}
 .nm.jh{text-decoration:underline;text-decoration-color:#4BA3D9;text-decoration-thickness:3px;text-underline-offset:3px}
@@ -177,6 +179,7 @@ const keyParts=k=>{const a=k.split('|');return {date:a[0],store:a[1],s:a[2],t:+a
 const sk=(s,t)=>s+'_'+t;
 const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
 const pn=pid=>{const p=P.find(x=>x.id===pid);return p?p.n:'（他店舗の患者）'};
+const pcn=pid=>{const p=P.find(x=>x.id===pid);return p&&p.c?String(p.c):''};
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('show'),2600)}
 const md=d=>(d.getMonth()+1)+'月'+d.getDate()+'日';
 const wk0=d=>addDays(d,-((d.getDay()+6)%7));
@@ -232,7 +235,7 @@ function detail(){
  const pid=b.pid;
  $('detail').innerHTML=`<div class="panel row"><span>${esc(pn(pid))}さん　${md(dd)} ${fmt(+t)}　${s==='q'?'10分枠':lnm(STORES.find(x=>x.id===S.store),+s)}</span>${MK.map(([f,l])=>`<label class="chk"><input type="checkbox" data-bm="${f}"${(pb&&pb.m&&pb.m[f])?' checked':''}> ${l}</label>`).join('')}<button class="btn" id="mvbtn">時間を変更</button><button class="btn d" id="cancel">予約を取り消す</button><button class="btn" id="close">閉じる</button></div>`;
 }
-const mk=b=>{if(b.cont)return '<span class="nm" style="color:var(--mut)">↓</span>';const m=b.m||{};return '<span class="nm'+(m.n?' nw':'')+(m.j?' jh':'')+(m.k?' kc':'')+'">'+esc(pn(b.pid))+'</span>'+(m.r?'<i class="rs">レセ</i>':'')+(m.h?'<i class="hr">ハ</i>':'')};
+const mk=b=>{if(b.cont)return '<span class="nm" style="color:var(--mut)">↓</span>';const m=b.m||{};return '<span class="nm'+(m.n?' nw':'')+(m.j?' jh':'')+(m.k?' kc':'')+'">'+esc(pn(b.pid))+'</span>'+(pcn(b.pid)?'<span class="no">No.'+esc(pcn(b.pid))+'</span>':'')+(m.r?'<i class="rs">レセ</i>':'')+(m.h?'<i class="hr">ハ</i>':'')};
 function table(){
  const st=STORES.find(s=>s.id===S.store),n=st.staff.length;
  let h='';
