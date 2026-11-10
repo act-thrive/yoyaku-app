@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>予約表</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.56.0/dist/umd/supabase.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F5F8F7;--sf:#fff;--ink:#1B2928;--mut:#5E706D;--line:#D3DDDA;--pri:#1F6F66;--pi:#fff;--hi:#FFF1CF;--hl:#E0A431;--bk:#DDEBE8;--bad:#B5483A;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121A19;--sf:#1A2524;--ink:#E6EEEC;--mut:#9BB0AC;--line:#2E3F3D;--pri:#4FB3A6;--pi:#0B1413;--hi:#3A2F12;--bk:#21393A;--bad:#E07A6B;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121A19;--sf:#1A2524;--ink:#E6EEEC;--mut:#9BB0AC;--line:#2E3F3D;--pri:#4FB3A6;--pi:#0B1413;--hi:#3A2F12;--bk:#21393A;--bad:#E07A6B;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:500 16px/1.6 "Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",Meiryo,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:12px 14px 40px}
+h1{font-size:20px;margin:0}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--hl);outline-offset:2px}
+.top,.bar,.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.top{justify-content:space-between;margin-bottom:4px}
+.note{color:var(--mut);font-size:13px;margin:0 0 10px}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:var(--sf);padding:10px 18px;min-height:44px}
+.seg button[aria-pressed=true]{background:var(--pri);color:var(--pi);font-weight:700}
+.bar{margin:8px 0}
+.bar select,.btn,#q,.fi{min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--sf);padding:6px 12px}
+.btn.p{background:var(--pri);color:var(--pi);border-color:var(--pri);font-weight:700}
+.btn.d{color:var(--bad)}
+#dl{min-width:9.5em;text-align:center}
+#q{width:100%;max-width:420px}
+#sug{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.panel{background:var(--sf);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:8px 0}
+.panel p{margin:4px 0 0;color:var(--mut);font-size:13px}
+.scroll{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--sf);max-height:70vh;overscroll-behavior:contain;position:sticky;top:var(--stkh,0px);z-index:10}
+.stk{position:sticky;top:0;z-index:30;background:var(--bg);padding:6px 0 4px;margin:0 0 4px;box-shadow:0 6px 8px -8px rgba(0,0,0,.35)}
+.stk #q{margin:0}.stk #sug{margin-top:6px}
+.tt{display:grid;min-width:max-content;width:100%}
+.hd{font-weight:700;text-align:center;padding:8px 4px;border-bottom:1px solid var(--line);background:var(--sf);position:sticky;top:0;z-index:3}
+.tt .hr{border-top:2px solid var(--ink)!important}
+.hd.td{background:var(--hi)}
+.hd.h2{top:var(--h1,36px)}
+.hd.cn{left:0;z-index:5}
+.tm{position:sticky;left:0;z-index:2;background:var(--sf)}
+.tm{font-size:12px;color:var(--mut);padding:8px 6px 0;border-top:1px solid var(--line);height:40px;box-sizing:border-box}
+.tt button,.cl{height:40px;box-sizing:border-box;border:0;border-top:1px solid var(--line);border-left:1px solid var(--line);margin:0;border-radius:0;font-size:14px}
+.em{background:var(--sf)}
+.em:hover{background:var(--hi)}
+.bk{background:var(--bk);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px}
+.bk.on{background:var(--hi);box-shadow:inset 0 0 0 2px var(--hl)}
+.cl{background:var(--bg);color:var(--mut);font-size:12px;text-align:center;padding-top:10px}
+.st{margin:14px 0;background:var(--sf);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.st h2{font-size:17px;margin:0 0 6px;display:flex;justify-content:space-between;gap:8px}
+.meter{height:6px;background:var(--bk);border-radius:3px;overflow:hidden;margin-bottom:8px}
+.meter i{display:block;height:100%;background:var(--pri)}
+.st ul{list-style:none;margin:0;padding:0}
+.st li{display:flex;gap:12px;padding:5px 0;border-top:1px solid var(--line)}
+.st li span:first-child{min-width:3.4em;color:var(--mut)}
+.st li span:nth-child(2){min-width:4em}
+.empty{color:var(--mut)}
+.cfg{margin-top:10px;border-top:1px solid var(--line);padding-top:4px}
+.cfg summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
+.cfg label{display:inline-flex;align-items:center;gap:4px;min-height:36px}
+.cfg select{min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--sf);padding:6px 12px}
+.wk{border-collapse:collapse;width:100%;min-width:640px}
+.wk th,.wk td{border-top:1px solid var(--line);border-left:1px solid var(--line);padding:8px 6px;text-align:center;font-size:14px}
+.wk tr:first-child th{border-top:0}.wk th:first-child,.wk td:first-child{border-left:0}
+.wk th{font-weight:700}.wk .meter{margin:4px 0 0}
+.cx{color:var(--mut);background:var(--bg)}
+.lnk{border:0;background:none;color:var(--pri);font-weight:700;min-height:44px;text-decoration:underline}
+.sheet button,.sheet .cl,.sheet .tm{height:48px}
+.qc{display:grid;grid-template-rows:1fr 1fr;height:48px;box-sizing:border-box;border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.sheet .qc button,.sheet .qc .cl{height:auto;border:0;border-top:1px dashed var(--line);font-size:11px;padding:0 3px;overflow:hidden}
+.sheet .qc>:first-child{border-top:0}
+.bk{position:relative}
+.bk .nm{padding-right:14px}
+.nm.nw{color:var(--bad)}
+.nm.kc{box-shadow:0 0 0 2px #E8C53A;border-radius:10px;padding:0 5px}
+.nm.jh{text-decoration:underline;text-decoration-color:#4BA3D9;text-decoration-thickness:3px;text-underline-offset:3px}
+.bk i{position:absolute;right:3px;font-style:normal;font-size:10px;line-height:1;color:var(--bad)}
+.bk i.rs{top:2px}.bk i.hr{bottom:2px}
+.chk{display:inline-flex;align-items:center;gap:4px;min-height:44px}
+.chk input{width:20px;height:20px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.show{opacity:1}
+[hidden]{display:none!important}
+#login{max-width:420px;margin:48px auto}
+#login .fi{width:100%;box-sizing:border-box}
+#lerr{color:var(--bad);min-height:1.4em}
+</style>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="予約表">
+</head>
+<body>
+<section id="login" class="panel" hidden>
+<h1>予約表</h1><p class="note">スタッフ用のメールアドレスとパスワードでログインしてください。</p>
+<form id="lform"><label>メールアドレス<br><input id="le" type="email" class="fi" autocomplete="username" required></label><br><br>
+<label>パスワード<br><input id="lp" type="password" class="fi" autocomplete="current-password" required></label>
+<p id="lerr" role="alert"></p><button class="btn p" type="submit" id="lgo">ログイン</button></form></section>
+<main id="app" hidden>
+<div class="top"><h1>予約表</h1>
+<div class="row"><button class="btn" id="logout">ログアウト</button><div class="seg" id="roleSeg"><button data-role="staff" aria-pressed="true">受付</button><button data-role="admin" aria-pressed="false">管理者</button></div></div></div>
+<p class="note" id="mode">共有の保存先に接続しています…</p>
+<div class="bar">
+<label id="storeWrap">店舗 <select id="myStore"></select></label>
+<div class="row"><button class="btn" id="prev" aria-label="前の日">‹</button><strong id="dl"></strong><button class="btn" id="next" aria-label="次の日">›</button><button class="btn" id="today">今日</button><button class="btn" id="wkall" hidden>週全体を見る</button></div>
+<div class="seg" id="vseg"><button data-view="day" aria-pressed="true">日</button><button data-view="week" aria-pressed="false">週</button></div>
+<label id="wsWrap" hidden>スタッフ <select id="wst"></select></label>
+</div>
+<section id="staffView">
+<div class="stk" id="stk">
+<input id="q" placeholder="名前・ひらがな・フリガナ・管理番号で探す" autocomplete="off" aria-label="患者さんを探す">
+<div id="sug"></div>
+<div id="patient"></div>
+</div>
+<div class="row" style="margin:6px 0"><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">患者データを取り込む（CSV）<input id="csv" type="file" accept=".csv,text/csv" hidden></label><button class="btn" id="newbtn">＋ 新規の患者さんを登録</button><button class="btn" id="plbtn">患者一覧</button><button class="btn" id="stbtn">スタッフの追加・削除</button><button class="btn" id="absbtn">スタッフの欠勤を設定</button></div>
+<p class="note" style="margin:0 0 6px">メープルのCSVを読み込むと、この店舗の患者さんとして保存されます。すでにいる方は飛ばされ、新しい方だけが追加されます。（名前などが変わっていれば更新されます）</p>
+<div id="nform" class="panel" hidden>
+<div class="row"><label>氏名 <input id="nn" class="fi" autocomplete="off"></label><label>フリガナ <input id="nk" class="fi" autocomplete="off"></label><button class="btn p" id="nsave">登録して選ぶ</button><button class="btn" id="ncancel">閉じる</button></div>
+<p>登録先の店舗：<span id="nstore"></span>。メープルの管理番号が決まったら、あとから登録して紐づけられます。</p>
+</div>
+<div id="plist" class="panel" hidden></div>
+<div id="stform" class="panel" hidden></div>
+<div id="absform" class="panel" hidden></div>
+<div id="detail"></div>
+<div class="scroll"><div id="tt" class="tt"></div></div>
+<p class="note" style="margin-top:8px">見かた：名前の水色の下線＝実費メニュー、赤い名前＝新規、赤い「レセ」＝今月初診、赤い「ハ」＝鍼、黄色い丸＝実費更新日、↓＝2枠予約</p>
+</section>
+<section id="adminView" hidden></section>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+const SB_URL='https://gxpnfftlixwyhxafcgdy.supabase.co',SB_KEY='sb_publishable_oOpjTBMdzfZHtumjOdpuIg_w-3uLdep';
+const STORES=[];
+const ALLT=[];for(let m=420;m<=1260;m+=20)ALLT.push(m);
+const ALLT10=[];for(let m=420;m<=1270;m+=10)ALLT10.push(m);
+const slotsOf=st=>{const a=[];for(let m=st.first;m<=st.lastPm;m+=20)a.push(m);return a};
+const isBreak=(st,m,d)=>(d&&st.half[d.getDay()])?m>st.halfEnd:(m>st.lastAm&&m<st.pm);
+const openOf=(st,d)=>slotsOf(st).filter(m=>!isBreak(st,m,d)).length;
+const HOL={'2026-01-01':'元日','2026-01-12':'成人の日','2026-02-11':'建国記念の日','2026-02-23':'天皇誕生日','2026-03-20':'春分の日','2026-04-29':'昭和の日','2026-05-03':'憲法記念日','2026-05-04':'みどりの日','2026-05-05':'こどもの日','2026-05-06':'振替休日','2026-07-20':'海の日','2026-08-11':'山の日','2026-09-21':'敬老の日','2026-09-22':'国民の休日','2026-09-23':'秋分の日','2026-10-12':'スポーツの日','2026-11-03':'文化の日','2026-11-23':'勤労感謝の日','2027-01-01':'元日','2027-01-11':'成人の日','2027-02-11':'建国記念の日','2027-02-23':'天皇誕生日','2027-03-21':'春分の日','2027-03-22':'振替休日','2027-04-29':'昭和の日','2027-05-03':'憲法記念日','2027-05-04':'みどりの日','2027-05-05':'こどもの日','2027-07-19':'海の日','2027-08-11':'山の日','2027-09-20':'敬老の日','2027-09-23':'秋分の日','2027-10-11':'スポーツの日','2027-11-03':'文化の日','2027-11-23':'勤労感謝の日'};
+const holName=(st,d)=>st.hol&&st.days[d.getDay()]?(HOL[iso(d)]||''):'';
+const closedLabel=(st,d)=>holName(st,d)||'休診';
+const isOpenDay=(st,d)=>st.days[d.getDay()]&&!holName(st,d);
+const timeOpts=sel=>{let o='';ALLT.forEach(m=>{o+='<option value="'+m+'"'+(m===sel?' selected':'')+'>'+fmt(m)+'</option>'});return o};
+const cfg=st=>'<details class="cfg" data-d="'+st.id+'"'+(S.cfgOpen[st.id]?' open':'')+'><summary>営業時間・営業日を変更</summary><div class="row" style="margin:6px 0">'+'日月火水木金土'.split('').map((w,i)=>'<label><input type="checkbox" data-c="'+st.id+'" data-f="day'+i+'"'+(st.days[i]?' checked':'')+'> '+w+'</label>').join('')+'<label><input type="checkbox" data-c="'+st.id+'" data-f="hol"'+(st.hol?' checked':'')+'> 祝日は休診</label></div><div class="row" style="margin:6px 0"><span>半日営業の曜日</span>'+'<label>週に1回 <select data-c="'+st.id+'" data-f="halfday">'+'日月火水木金土'.split('').map((w,i)=>'<option value="'+i+'"'+(st.half[i]?' selected':'')+'>'+w+'曜</option>').join('')+'</select></label>'+'</div><div class="row">'+[['first','開始'],['lastAm','午前の最終受付'],['pm','午後の開始'],['lastPm','午後の最終受付'],['halfEnd','半日営業の最終受付']].map(([f,l])=>'<label>'+l+' <select data-c="'+st.id+'" data-f="'+f+'">'+timeOpts(st[f])+'</select></label>').join('')+'</div><p class="note" style="margin:6px 0 0">最終受付の時刻の枠も予約できます。変更はこの店舗の受付画面にすぐ反映されます。</p></details>';
+const fmt=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $=id=>document.getElementById(id);
+const sname=id=>(STORES.find(s=>s.id===id)||{name:id}).name;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const P=[];
+const B={};
+const S={one:false,role:'staff',store:'',date:new Date(),pid:null,sel:null,q:'',view:'day',ws:0,cfgOpen:{},mk:{j:0,h:0,r:0,n:0},mode:'loading',admin:false,canW:true,psig:'',rf:'',rt:''};
+S.date.setHours(0,0,0,0);
+let sb=null,ME=null;
+let ABSL=[];const ABS={};
+let LU=new Set();
+const hid=(st,i)=>!!(st.hid&&st.hid[i]);
+const lnm=(st,i)=>st.staff[i]+(hid(st,i)?'（削除済）':'');
+function luBuild(){LU=new Set();Object.keys(B).forEach(k=>{if(B[k].cont)return;const q=k.split('|');LU.add(q[1]+'|'+q[0]+'|'+q[2])})}
+function lanesFor(st,dates){const out=[];st.staff.forEach((_,i)=>{if(!hid(st,i)||(dates&&dates.some(d=>LU.has(st.id+'|'+(typeof d==='string'?d:iso(d))+'|'+i))))out.push(i)});return out}
+function rebuildAbs(){Object.keys(ABS).forEach(k=>delete ABS[k]);ABSL.forEach(a=>{const k=a.store_id+'|'+a.absence_date+'|'+a.lane;(ABS[k]=ABS[k]||{})[a.part]=1})}
+function isAbsent(store,d,lane,t,st){
+ if(lane==='q')return false;
+ const a=ABS[store+'|'+(typeof d==='string'?d:iso(d))+'|'+lane];if(!a)return false;
+ return !!(a.all||(a.am&&t<=st.lastAm)||(a.pm&&t>=st.pm));
+}
+const absCell=(store,d,lane,t,st,extra)=>'<div class="cl"'+(extra||'')+'>'+((t===st.first||t===st.pm||!isAbsent(store,d,lane,t-20,st))?'欠勤':'')+'</div>';
+const key=(d,st,s,t)=>iso(d)+'|'+st+'|'+s+'|'+t;
+const keyParts=k=>{const a=k.split('|');return {date:a[0],store:a[1],s:a[2],t:+a[3]}};
+const sk=(s,t)=>s+'_'+t;
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const pn=pid=>{const p=P.find(x=>x.id===pid);return p?p.n:'（他店舗の患者）'};
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('show'),2600)}
+const md=d=>(d.getMonth()+1)+'月'+d.getDate()+'日';
+const wk0=d=>addDays(d,-((d.getDay()+6)%7));
+const fromIso=s=>{const a=s.split('-');return new Date(+a[0],+a[1]-1,+a[2])};
+function label(){const d=S.date;$('dl').textContent=S.one&&S.role==='staff'?md(d)+'（'+'日月火水木金土'[d.getDay()]+'）':(S.role==='staff'||S.view!=='day')?md(wk0(d))+'〜'+md(addDays(wk0(d),6)):md(d)+'（'+'日月火水木金土'[d.getDay()]+'）'}
+function banner(){
+ const role=S.admin?'管理者':'受付';
+ const m={loading:'接続しています…',live:'接続中。予約はすべての端末にすぐ反映されます。',error:'サーバーとの接続が切れました。通信を確認して、ページを開き直してください。'}[S.mode]||'';
+ $('mode').textContent=m+(S.mode==='loading'?'':'　ログイン：'+((ME&&ME.email)||'')+'（'+role+(S.admin?'':'・'+sname(S.store))+'）');
+}
+function pats(){return P.filter(p=>p.s===S.store).sort((a,b)=>(b.nw?1:0)-(a.nw?1:0))}
+const kh=s=>String(s).normalize('NFKC').replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60)).replace(/[\s　]/g,'').toLowerCase();
+const z0=s=>String(s).replace(/^0+(?=\d)/,'');
+function sugg(){
+ const q=kh(S.q),qn=/^\d+$/.test(q)?z0(q):null;
+ const score=p=>{
+  if(!q)return 5;
+  const c=p.c?kh(p.c):'';
+  if(c&&qn!==null){if(c===q||z0(c)===qn)return 0;if(c.startsWith(q)||z0(c).startsWith(qn))return 1;if(c.includes(q)||z0(c).includes(qn))return 2}
+  const t=kh(p.n+p.k+c);
+  if(t.includes(q))return kh(p.n).startsWith(q)||kh(p.k).startsWith(q)?3:4;
+  return -1};
+ const all=pats().map(p=>[score(p),p]).filter(x=>x[0]>=0).sort((a,b)=>a[0]-b[0]||(b[1].nw?1:0)-(a[1].nw?1:0));
+ const list=all.slice(0,10).map(x=>x[1]);
+ $('sug').innerHTML=list.length?list.map(p=>`<button class="btn" data-p="${esc(p.id)}">${esc(p.n)}${p.nw?'（新規）':''}${p.c?'<small style="font-weight:400"> No.'+esc(p.c)+'</small>':''}</button>`).join('')+(all.length>10?'<span class="note" style="margin:0;align-self:center">ほか'+(all.length-10)+'人。さらに絞り込んでください</span>':''):'<span class="empty">該当する患者さんがいません</span>';
+}
+const MK=[['j','実費'],['k','実費更新日'],['h','鍼'],['r','レセ（今月初診）'],['n','新規']];
+function patient(){
+ const p=P.find(x=>x.id===S.pid);
+ const sig=[S.pid,p&&p.s,p&&p.nw,S.mk.j,S.mk.k,S.mk.h,S.mk.r,S.mk.n,S.mk.w,S.canW].join('|');
+ if(sig===S.psig)return;S.psig=sig;
+ if(!p){$('patient').innerHTML='';return}
+ const others=STORES.filter(s=>s.id!==p.s).map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+ $('patient').innerHTML=`<div class="panel"><div class="row"><strong>${esc(p.n)}さん</strong><span>通う店舗：${sname(p.s)}</span>
+ <button class="btn p" id="again">1週間後の同じ枠で予約</button><button class="btn" id="clear">選択を解除</button></div>
+ <div class="row" style="margin-top:8px">${MK.concat([['w','2枠（40分）']]).map(([f,l])=>`<label class="chk"><input type="checkbox" data-mk="${f}"${S.mk[f]?' checked':''}> ${l}</label>`).join('')}<span class="note" style="margin:0">この予約の目印</span></div>
+ <div class="row" style="margin-top:8px"><label>通う店舗を変更 <select id="moveTo">${others}</select></label><button class="btn" id="move">変更する</button></div>
+ ${p.nw?`<div class="row" style="margin-top:8px"><label>メープルの管理番号 <input id="lnum" class="fi" autocomplete="off" inputmode="numeric"></label><button class="btn" id="link">管理番号を登録</button></div><p>メープルの管理番号を登録すると、メープルの患者さんとして紐づきます（すでに同じ管理番号の方がいる場合は、予約もまとめられます）。</p>`:''}
+ <p>下の表の空き枠をタップすると予約が入ります。店舗を変更しても、過去の予約は元の店舗に残ります。</p></div>`;
+}
+function detail(){
+ const b=S.sel&&B[S.sel];
+ if(!b){$('detail').innerHTML='';return}
+ const pb=b.cont?B[b.cont]:b;
+ const [dk,,s,t]=S.sel.split('|'),dd=fromIso(dk);
+ const pid=b.pid;
+ $('detail').innerHTML=`<div class="panel row"><span>${esc(pn(pid))}さん　${md(dd)} ${fmt(+t)}　${s==='q'?'10分枠':lnm(STORES.find(x=>x.id===S.store),+s)}</span>${MK.map(([f,l])=>`<label class="chk"><input type="checkbox" data-bm="${f}"${(pb&&pb.m&&pb.m[f])?' checked':''}> ${l}</label>`).join('')}<button class="btn d" id="cancel">予約を取り消す</button><button class="btn" id="close">閉じる</button></div>`;
+}
+const mk=b=>{if(b.cont)return '<span class="nm" style="color:var(--mut)">↓</span>';const m=b.m||{};return '<span class="nm'+(m.n?' nw':'')+(m.j?' jh':'')+(m.k?' kc':'')+'">'+esc(pn(b.pid))+'</span>'+(m.r?'<i class="rs">レセ</i>':'')+(m.h?'<i class="hr">ハ</i>':'')};
+function table(){
+ const st=STORES.find(s=>s.id===S.store),n=st.staff.length;
+ let h='';
+ if(!isOpenDay(st,S.date)){$('tt').style.gridTemplateColumns='1fr';$('tt').innerHTML='<div class="cl" style="height:auto;padding:18px;border:0">この日は'+st.name+'の休診日です'+(holName(st,S.date)?'（'+holName(st,S.date)+'）':'')+'</div>';return}
+ $('tt').style.gridTemplateColumns='52px repeat('+n+',minmax(92px,1fr))';
+ h+='<div class="hd"></div>'+st.staff.map(x=>`<div class="hd">${esc(x)}</div>`).join('');
+ slotsOf(st).forEach(t=>{
+  h+=`<div class="tm">${fmt(t)}</div>`;
+  for(let s=0;s<n;s++){
+   if(isBreak(st,t,S.date)){h+=`<div class="cl">${t===(st.half[S.date.getDay()]?st.halfEnd:st.lastAm)+20&&s===0?(st.half[S.date.getDay()]?'午後休み':'休憩'):''}</div>`;continue}
+   const k=key(S.date,S.store,s,t),b=B[k];
+   if(b){h+=`<button class="bk${S.sel===k?' on':''}" data-k="${k}">${mk(b)}</button>`}
+   else h+=`<button class="em" data-s="${s}" data-t="${t}" aria-label="${esc(st.staff[s])} ${fmt(t)} 空き"></button>`;
+  }
+ });
+ $('tt').innerHTML=h;
+}
+function weekTable(){
+ const st=STORES.find(s=>s.id===S.store),w=wk0(S.date),days=[0,1,2,3,4,5,6].map(i=>addDays(w,i));
+ const wlanes=lanesFor(st,days);if(S.ws>=0&&!wlanes.includes(S.ws))S.ws=wlanes.length?wlanes[0]:0;
+ $('wst').innerHTML='<option value="-1"'+(S.ws===-1?' selected':'')+'>全員</option><option value="-2"'+(S.ws===-2?' selected':'')+'>10分枠</option>'+wlanes.map(i=>'<option value="'+i+'"'+(i===S.ws?' selected':'')+'>'+esc(lnm(st,i))+'</option>').join('');
+ $('tt').style.gridTemplateColumns='52px repeat(7,minmax(84px,1fr))';
+ let h='<div class="hd cn"></div>'+days.map(d=>'<div class="hd'+(iso(d)===iso(new Date())?' td':'')+'">'+(d.getMonth()+1)+'/'+d.getDate()+'（'+'日月火水木金土'[d.getDay()]+'）</div>').join('');
+ slotsOf(st).forEach(t=>{
+  h+='<div class="tm">'+fmt(t)+'</div>';
+  days.forEach(d=>{
+   if(!isOpenDay(st,d)){h+='<div class="cl">'+(t===st.first?closedLabel(st,d):'')+'</div>';return}
+   if(isBreak(st,t,d)){h+='<div class="cl">'+(t===(st.half[d.getDay()]?st.halfEnd:st.lastAm)+20?(st.half[d.getDay()]?'午後休み':'休憩'):'')+'</div>';return}
+   if(S.ws===-2){h+='<div class="qc">'+[t,t+10].map((u,j)=>{if(j&&(isBreak(st,u,d)||t===st.lastPm))return '<div class="cl"></div>';const k=key(d,S.store,'q',u),b=B[k];return b?'<button class="bk'+(S.sel===k?' on':'')+'" data-k="'+k+'">'+mk(b)+'</button>':'<button class="em" data-s="q" data-t="'+u+'" data-d="'+iso(d)+'" aria-label="'+iso(d)+' '+fmt(u)+' 10分枠 空き"></button>'}).join('')+'</div>';return}
+   if(S.ws===-1){
+    const bs=[];wlanes.forEach(s=>{const nm=lnm(st,s);const bb=B[key(d,S.store,s,t)];if(bb)bs.push(pn(bb.pid)+'（'+nm+'）')});
+    h+='<button class="'+(bs.length?'bk':'em')+'" data-a="1" data-t="'+t+'" data-d="'+iso(d)+'" title="'+esc(bs.join('、'))+'">'+(bs.length?bs.length+' / '+wlanes.length:'')+'</button>';return}
+   const k=key(d,S.store,S.ws,t),b=B[k];
+   if(!b&&isAbsent(S.store,d,S.ws,t,st)){h+=absCell(S.store,d,S.ws,t,st);return}
+   if(b){h+='<button class="bk'+(S.sel===k?' on':'')+'" data-k="'+k+'">'+mk(b)+'</button>'}
+   else h+='<button class="em" data-s="'+S.ws+'" data-t="'+t+'" data-d="'+iso(d)+'" aria-label="'+iso(d)+' '+fmt(t)+' 空き"></button>';
+  });
+ });
+ $('tt').innerHTML=h;
+}
+function sheetTable(){
+ const st=STORES.find(s=>s.id===S.store),w=wk0(S.date);
+ const days=S.one?[S.date]:[1,2,3,4,5,6].concat(st.days[0]?[0]:[]).map(i=>addDays(w,(i+6)%7));
+ const lanes=lanesFor(st,days),n=lanes.length,c=n+1;
+ $('tt').style.gridTemplateColumns='52px repeat('+days.length*c+',minmax('+(S.one?'104px':'60px')+',1fr))';
+ const bd=' style="border-left:2px solid var(--ink)"';
+ let h='<div class="hd cn"></div>'+days.map(d=>'<div class="hd'+(iso(d)===iso(new Date())?' td':'')+'" style="grid-column:span '+c+';border-left:2px solid var(--ink)">'+(d.getMonth()+1)+'/'+d.getDate()+'（'+'日月火水木金土'[d.getDay()]+'）</div>').join('');
+ h+='<div class="hd h2 cn"></div>'+days.map(()=>lanes.map((x,i)=>'<div class="hd h2"'+(i?'':bd)+'>'+esc(lnm(st,x))+'</div>').join('')+'<div class="hd h2">10分</div>').join('');
+ slotsOf(st).forEach(t=>{
+  h+='<div class="tm">'+fmt(t)+'</div>';
+  days.forEach(d=>{
+   const closed=!isOpenDay(st,d),brk=isBreak(st,t,d);
+   for(let si=0;si<c;si++){
+    const s=si<n?lanes[si]:'q',b0=si===0?bd:'';
+    if(closed||brk){h+='<div class="cl"'+b0+'>'+(brk&&!closed&&si===0&&t===(st.half[d.getDay()]?st.halfEnd:st.lastAm)+20?(st.half[d.getDay()]?'午後休み':'休憩'):closed&&si===0&&t===st.first?closedLabel(st,d):'')+'</div>';continue}
+    if(si===n){
+     h+='<div class="qc">'+[t,t+10].map((u,j)=>{
+      if(j&&(isBreak(st,u,d)||t===st.lastPm))return '<div class="cl"></div>';
+      const k=key(d,S.store,'q',u),b=B[k];
+      return b?'<button class="bk'+(S.sel===k?' on':'')+'" data-k="'+k+'">'+mk(b)+'</button>':'<button class="em" data-s="q" data-t="'+u+'" data-d="'+iso(d)+'" aria-label="'+iso(d)+' '+fmt(u)+' 10分枠 空き"></button>'}).join('')+'</div>';continue}
+    const k=key(d,S.store,s,t),b=B[k];
+    if(!b&&isAbsent(S.store,d,s,t,st)){h+=absCell(S.store,d,s,t,st,b0);continue}
+    h+=b?'<button class="bk'+(S.sel===k?' on':'')+'"'+b0+' data-k="'+k+'">'+mk(b)+'</button>':'<button class="em"'+b0+' data-s="'+s+'" data-t="'+t+'" data-d="'+iso(d)+'" aria-label="'+iso(d)+' '+esc(lnm(st,s))+' '+fmt(t)+' 空き"></button>';
+   }
+  });
+ });
+ $('tt').innerHTML=h;
+}
+function adminWeek(){
+ const w=wk0(S.date),days=[0,1,2,3,4,5,6].map(i=>addDays(w,i));
+ let h='<p class="note">日付をタップすると、その日の店舗別の予約を確認できます。営業時間・営業日の変更は「日」表示で行います。</p><div class="scroll"><table class="wk"><tr><th></th>'+days.map(d=>'<th><button class="lnk" data-day="'+iso(d)+'">'+(d.getMonth()+1)+'/'+d.getDate()+'（'+'日月火水木金土'[d.getDay()]+'）</button></th>').join('')+'</tr>';
+ STORES.forEach(st=>{
+  h+='<tr><th>'+st.name+'</th>';
+  days.forEach(d=>{
+   if(!isOpenDay(st,d)){h+='<td class="cx">'+(holName(st,d)||'休診')+'</td>';return}
+   const ls=lanesFor(st,[d]);let n=0;ls.forEach(s=>ALLT.forEach(t=>{if(B[key(d,st.id,s,t)])n++}));
+   const tot=openOf(st,d)*ls.length;
+   h+='<td><strong>'+n+'</strong> / '+tot+'<div class="meter"><i style="width:'+Math.min(100,Math.round(n/tot*100))+'%"></i></div></td>';
+  });
+  h+='</tr>';
+ });
+ $('adminView').innerHTML=h+'</table></div>';
+}
+function admin(){
+ if(S.view!=='day'){adminWeek();return}
+ let h='';
+ STORES.forEach(st=>{
+  const rows=[];
+  lanesFor(st,[S.date]).forEach(s=>ALLT.forEach(t=>{const b=B[key(S.date,st.id,s,t)];if(b)rows.push({t,nm:lnm(st,s),b})}));
+  ALLT10.forEach(t=>{const b=B[key(S.date,st.id,'q',t)];if(b)rows.push({t,nm:'10分枠',b})});
+  rows.sort((a,b)=>a.t-b.t);
+  const total=openOf(st,S.date)*lanesFor(st,[S.date]).length;
+  h+=`<div class="st"><h2><span>${st.name}（スタッフ${st.staff.filter((_,i)=>!hid(st,i)).length}人）</span><span>${rows.length} / ${total}枠</span></h2>
+  <div class="meter"><i style="width:${Math.min(100,Math.round(rows.length/total*100))}%"></i></div>
+  ${rows.length?'<ul>'+rows.filter(r=>!r.b.cont).map(r=>`<li><span>${fmt(r.t)}</span><span>${esc(r.nm)}</span><span>${esc(pn(r.b.pid))}</span></li>`).join('')+'</ul>':'<span class="empty">'+(isOpenDay(st,S.date)?'この日の予約はありません':'この日は休診日です'+(holName(st,S.date)?'（'+holName(st,S.date)+'）':''))+'</span>'}${cfg(st)}</div>`;
+ });
+ $('adminView').innerHTML='<p class="note">全店舗の予約を確認できます（確認のみ。変更は各店舗の受付で行います）。</p>'+h;
+}
+function hourLines(){
+ const c=[...$('tt').children];let on=false,seen=0;
+ c.forEach(e=>{
+  if(e.classList.contains('tm')){on=/:00$/.test(e.textContent)&&seen>0;seen++}
+  e.classList.toggle('hr',on&&!e.classList.contains('hd'));
+ });
+}
+function fit(){
+ const k=$('stk'),sc=document.querySelector('.scroll');if(!k||!sc)return;
+ document.documentElement.style.setProperty('--stkh',(k.offsetHeight+2)+'px');
+ sc.style.maxHeight=Math.max(260,innerHeight-k.offsetHeight-72)+'px';
+ const f=$('tt').querySelector('.hd:not(.h2):not(.cn)');if(f)$('tt').style.setProperty('--h1',f.offsetHeight+'px');
+}
+window.addEventListener('resize',fit);
+try{new ResizeObserver(fit).observe($('stk'))}catch(_){}
+function render(){
+ if(!S.admin&&S.role==='admin')S.role='staff';
+ luBuild();label();banner();
+ const staff=S.role==='staff';
+ $('roleSeg').hidden=!S.admin;
+ $('nstore').textContent=sname(S.store);
+ $('staffView').hidden=!staff;$('adminView').hidden=staff;$('storeWrap').hidden=!staff||!S.admin;
+ document.querySelectorAll('[data-role]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.role===S.role));
+ document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.view===S.view));
+ $('wsWrap').hidden=!(staff&&S.view==='week');
+ $('wkall').hidden=!(staff&&S.one);
+ $('tt').classList.toggle('sheet',S.view!=='week'||S.ws===-2);
+ if(staff){patient();detail();S.view==='week'?weekTable():sheetTable();plRender();hourLines();fit()}else admin();
+}
+function wr(){if(S.canW)return true;toast('この画面は閲覧のみです');return false}
+function lastSlot(pid){let best=null;Object.keys(B).forEach(k=>{const b=B[k];if(b.cont||b.pid!==pid)return;if(!best||k>best)best=k});if(!best)return null;const p=keyParts(best);return {s:p.s==='q'?'q':+p.s,t:p.t}}
+
+const norm=r=>({id:r.id,name:r.name,staff:r.staff||[],hid:r.staff_hidden||[],days:r.days,half:r.half,hol:r.hol,first:r.first_min,lastAm:r.last_am,pm:r.pm_min,lastPm:r.last_pm,halfEnd:r.half_end});
+async function pageAll(q){const out=[];for(let f=0;;f+=1000){const {data,error}=await q(f,f+999);if(error)throw error;out.push(...data);if(data.length<1000)break}return out}
+const API={
+ async login(email,pw){const {data,error}=await sb.auth.signInWithPassword({email,password:pw});if(error)throw error;return data.user},
+ async user(){const {data}=await sb.auth.getSession();return data.session?data.session.user:null},
+ async logout(){await sb.auth.signOut()},
+ async profile(uid){const {data,error}=await sb.from('profiles').select('role,store_id').eq('user_id',uid).maybeSingle();if(error)throw error;return data},
+ async stores(){const {data,error}=await sb.from('stores').select('*').order('id');if(error)throw error;return data},
+ async holidays(){const {data,error}=await sb.from('holidays').select('day,name');if(error)throw error;return data},
+ patients(){return pageAll((a,b)=>sb.from('patients').select('id,kanri_no,name,kana,store_id').order('id').range(a,b))},
+ appts(from,to){return pageAll((a,b)=>sb.from('appointments').select('id,store_id,appt_date,lane,start_min,dur_min,patient_id,marks').eq('status','confirmed').gte('appt_date',from).lte('appt_date',to).order('id').range(a,b))},
+ async addAppt(row){const {data,error}=await sb.from('appointments').insert(row).select('id').single();if(error)throw error;return data.id},
+ async cancelAppt(id){const {error}=await sb.from('appointments').update({status:'cancelled'}).eq('id',id);if(error)throw error},
+ async setMarks(id,m){const {error}=await sb.from('appointments').update({marks:m}).eq('id',id);if(error)throw error},
+ async addPatient(row){const {data,error}=await sb.from('patients').insert(row).select('id,kanri_no,name,kana,store_id').single();if(error)throw error;return data},
+ async setKanri(id,num){const {error}=await sb.from('patients').update({kanri_no:num}).eq('id',id);if(error)throw error},
+ async mergePatient(fromId,toId){
+  const a=await sb.from('appointments').update({patient_id:toId}).eq('patient_id',fromId);if(a.error)throw a.error;
+  const d=await sb.from('patients').delete().eq('id',fromId);if(d.error)throw d.error},
+ async movePatient(id,store){const {error}=await sb.rpc('move_patient',{p_id:id,p_store:store});if(error)throw error},
+ async insertPatients(rows){let ok=0,fail=0;
+  for(let i=0;i<rows.length;i+=300){const ch=rows.slice(i,i+300);
+   const r=await sb.from('patients').upsert(ch,{onConflict:'kanri_no',ignoreDuplicates:true});
+   if(!r.error){ok+=ch.length;continue}
+   for(const x of ch){const r2=await sb.from('patients').upsert(x,{onConflict:'kanri_no',ignoreDuplicates:true});if(r2.error)fail++;else ok++}}
+  return {ok,fail}},
+ async updatePatientName(id,name,kana){const {error}=await sb.from('patients').update({name,kana}).eq('id',id);if(error)throw error},
+ async deleteStaff(id,i,force){const {error}=await sb.rpc('delete_store_staff',{p_store:id,p_index:i,p_force:!!force});if(error)throw error},
+ async setStaff(id,staff,hidden){const {error}=await sb.rpc('set_store_staff',{p_store:id,p_staff:staff,p_hidden:hidden});if(error)throw error},
+ async saveStore(st){const {error}=await sb.from('stores').update({days:st.days,half:st.half,hol:st.hol,first_min:st.first,last_am:st.lastAm,pm_min:st.pm,last_pm:st.lastPm,half_end:st.halfEnd}).eq('id',st.id);if(error)throw error},
+ async absences(from,to){const {data,error}=await sb.from('staff_absences').select('id,store_id,absence_date,lane,part').gte('absence_date',from).lte('absence_date',to).order('absence_date');if(error)throw error;return data},
+ async addAbsence(row){const {data,error}=await sb.from('staff_absences').insert(row).select('id,store_id,absence_date,lane,part').single();if(error)throw error;return data},
+ async addAbsences(rows){const {data,error}=await sb.from('staff_absences').upsert(rows,{onConflict:'store_id,absence_date,lane,part',ignoreDuplicates:true}).select('id,store_id,absence_date,lane,part');if(error)throw error;return data},
+ async delAbsence(id){const {error}=await sb.from('staff_absences').delete().eq('id',id);if(error)throw error},
+ subscribe(cb){sb.channel('appts').on('postgres_changes',{event:'*',schema:'public',table:'appointments'},cb).on('postgres_changes',{event:'*',schema:'public',table:'staff_absences'},cb).subscribe()}
+};
+function saveSettings(st){if(!S.admin)return;API.saveStore(st).catch(()=>toast('設定を保存できませんでした。もう一度お試しください'))}
+function rebuild(rows){
+ Object.keys(B).forEach(k=>delete B[k]);
+ rows.forEach(r=>{
+  const k=r.appt_date+'|'+r.store_id+'|'+r.lane+'|'+r.start_min,two=r.dur_min===40;
+  B[k]={pid:r.patient_id,m:r.marks||{},span:two?2:1,id:r.id};
+  if(two)B[r.appt_date+'|'+r.store_id+'|'+r.lane+'|'+(r.start_min+20)]={pid:r.patient_id,cont:k};
+ });
+}
+async function loadPatients(){
+ const rows=await API.patients();P.length=0;
+ rows.forEach(r=>P.push({id:r.id,n:r.name,k:r.kana||'',s:r.store_id,c:r.kanri_no,nw:r.kanri_no?0:1}));
+}
+let rT=null,rBusy=false;
+function scheduleReload(){clearTimeout(rT);rT=setTimeout(reload,300)}
+async function reload(){
+ if(rBusy)return;rBusy=true;
+ try{const [rows,ab,srows]=await Promise.all([API.appts(S.rf,S.rt),API.absences(S.rf,S.rt).catch(()=>ABSL),API.stores().catch(()=>null)]);if(srows)srows.forEach(r=>{const o=STORES.find(x=>x.id===r.id);if(o)Object.assign(o,norm(r))});rebuild(rows);ABSL=ab;rebuildAbs();S.mode='live'}catch(e){S.mode='error'}
+ rBusy=false;render();absList();
+}
+function ensureRange(){
+ const a=iso(addDays(S.date,-14)),b=iso(addDays(S.date,14));
+ if(a<S.rf||b>S.rt){S.rf=iso(addDays(S.date,-60));S.rt=iso(addDays(S.date,120));reload()}
+}
+function errMsg(e,fallback){
+ if(e&&e.code==='23P01')return 'その枠はすでに埋まっています（他の端末で先に予約が入りました）';
+ return fallback;
+}
+async function book(s,t,pid,date){
+ const k=key(date,S.store,s,t);
+ const st0=STORES.find(x=>x.id===S.store);
+ if(!wr())return false;
+ if(!isOpenDay(st0,date)){toast('その日は休診日です');return false}
+ if(t<st0.first||t>st0.lastPm||isBreak(st0,t,date)){toast('その時間は受付時間外です');return false}
+ if(B[k]){toast('その枠はすでに埋まっています');return false}
+ if(isAbsent(S.store,date,s,t,st0)){toast('このスタッフは、その時間は欠勤に設定されています');return false}
+ const two=!!S.mk.w&&s!=='q';
+ const k2=key(date,S.store,s,t+20);
+ if(two){
+  if(t+20>st0.lastPm||isBreak(st0,t+20,date)){toast('2枠続けて取れません（営業時間の終わりか休憩に重なります）');return false}
+  if(B[k2]){toast('次の枠がすでに埋まっています');return false}
+ }
+ const marks=Object.assign({},S.mk);delete marks.w;
+ let id;
+ try{id=await API.addAppt({store_id:S.store,appt_date:iso(date),lane:String(s),start_min:t,dur_min:s==='q'?10:(two?40:20),patient_id:pid,marks,source:'reception'})}
+ catch(e){toast(errMsg(e,'予約を保存できませんでした。もう一度お試しください'));reload();return false}
+ B[k]={pid,m:marks,span:two?2:1,id};
+ if(two)B[k2]={pid,cont:k};
+ S.mk={j:0,h:0,r:0,n:0};
+ toast(pn(pid)+'さんを予約しました　'+fmt(t)+'　'+(s==='q'?'10分枠':lnm(st0,s)));
+ return true;
+}
+async function unbook(k){
+ const b=B[k];if(!b)return false;
+ if(!wr())return false;
+ const pk=b.cont||k,pb=B[pk];
+ try{await API.cancelAppt(pb.id)}catch(e){toast('取り消せませんでした。もう一度お試しください');return false}
+ delete B[pk];
+ if(pb&&pb.span===2){const a=pk.split('|');delete B[a[0]+'|'+a[1]+'|'+a[2]+'|'+(+a[3]+20)]}
+ return true;
+}
+async function setMark(k,f,val){
+ const b0=B[k];if(!b0)return;
+ if(!wr()){render();return}
+ const pk=b0.cont||k,pb=B[pk];if(!pb)return;
+ const old=pb.m?pb.m[f]:0;
+ pb.m=pb.m||{};pb.m[f]=val;
+ try{await API.setMarks(pb.id,pb.m)}catch(e){pb.m[f]=old;toast('印を保存できませんでした。もう一度お試しください')}
+ render();
+}
+async function linkNew(p,num){
+ if(!wr())return;
+ if(!/^[0-9A-Za-z._-]+$/.test(num)){toast('管理番号は半角の英数字で入力してください');return}
+ const ex=P.find(x=>x.c===num&&x.id!==p.id);
+ try{
+  if(ex)await API.mergePatient(p.id,ex.id);else await API.setKanri(p.id,num);
+  await loadPatients();rebuild(await API.appts(S.rf,S.rt));
+ }catch(e){toast('管理番号の登録に失敗しました（すでに他の店舗で使われている可能性があります）');return}
+ const now=P.find(x=>x.c===num);
+ S.pid=now?now.id:null;S.psig='';
+ render();sugg();
+ toast((now?now.n+'さん':'管理番号 '+num)+'に紐づけました');
+}
+
+$('myStore').onchange=e=>{S.store=e.target.value;try{localStorage.setItem('rsv_store',S.store)}catch(x){}S.ws=0;S.pid=null;S.sel=null;S.q='';$('q').value='';sugg();render();plRender(true);if(!$('absform').hidden)absOpen();if(!$('stform').hidden)stOpen()};
+$('prev').onclick=()=>{S.date=addDays(S.date,S.one?-1:(S.role==='staff'||S.view!=='day')?-7:-1);S.sel=null;ensureRange();render()};
+$('next').onclick=()=>{S.date=addDays(S.date,S.one?1:(S.role==='staff'||S.view!=='day')?7:1);S.sel=null;ensureRange();render()};
+$('today').onclick=()=>{S.date=new Date();S.date.setHours(0,0,0,0);S.sel=null;S.one=true;S.view='day';ensureRange();render();const e=document.querySelector('#tt .hd.td'),sc=document.querySelector('.scroll');if(e&&sc)sc.scrollLeft=Math.max(0,e.offsetLeft-60);const d=new Date();toast('今日（'+(d.getMonth()+1)+'/'+d.getDate()+'）だけを表示しています')};
+$('wkall').onclick=()=>{S.one=false;S.sel=null;render()};
+document.querySelectorAll('[data-role]').forEach(b=>b.onclick=()=>{S.role=b.dataset.role;render()});
+$('q').oninput=e=>{S.q=e.target.value;sugg()};
+$('q').onfocus=sugg;
+$('sug').onclick=e=>{const b=e.target.closest('[data-p]');if(!b)return;const p=P.find(x=>String(x.id)===b.dataset.p);if(!p)return;S.pid=p.id;S.mk={j:0,h:0,r:0,n:p.nw?1:0};S.sel=null;S.q='';$('q').value='';$('sug').innerHTML='';render()};
+$('newbtn').onclick=()=>{$('nform').hidden=!$('nform').hidden;if(!$('nform').hidden)$('nn').focus()};
+$('ncancel').onclick=()=>{$('nform').hidden=true};
+$('nsave').onclick=async()=>{
+ const n=$('nn').value.trim(),k=$('nk').value.trim();
+ if(!n){toast('氏名を入力してください');$('nn').focus();return}
+ if(!wr())return;
+ let r;
+ try{r=await API.addPatient({name:n,kana:k,store_id:S.store})}catch(e){toast('登録できませんでした。もう一度お試しください');return}
+ P.push({id:r.id,n:r.name,k:r.kana||'',s:r.store_id,c:null,nw:1});
+ S.pid=r.id;S.mk={j:0,h:0,r:0,n:1};S.sel=null;
+ $('nn').value='';$('nk').value='';$('nform').hidden=true;$('sug').innerHTML='';
+ render();toast(n+'さんを新規の患者さんとして登録しました');
+};
+$('patient').onclick=async e=>{
+ const id=e.target.id,p=P.find(x=>x.id===S.pid);
+ if(!p)return;
+ if(id==='clear'){S.pid=null;render();sugg()}
+ if(id==='again'){
+  const ls=lastSlot(p.id);
+  if(!ls){toast('この患者さんには前回の予約がまだありません');return}
+  const d=addDays(S.date,7);
+  if(await book(ls.s,ls.t,p.id,d)){S.date=d;S.sel=null;ensureRange();render()}
+ }
+ if(id==='move'){
+  if(!wr())return;
+  const to=$('moveTo').value,from=p.s;
+  try{await API.movePatient(p.id,to)}catch(x){toast('変更できませんでした。もう一度お試しください');return}
+  p.s=to;S.pid=null;render();sugg();
+  toast(p.n+'さんの通う店舗を'+sname(to)+'に変更しました（'+sname(from)+'の過去の予約はそのまま残ります）');
+ }
+ if(id==='link'){await linkNew(p,($('lnum').value||'').trim())}
+};
+$('tt').onclick=async e=>{
+ const b=e.target.closest('button');if(!b)return;
+ if(b.dataset.a){
+  const st=STORES.find(x=>x.id===S.store),d=fromIso(b.dataset.d),t=+b.dataset.t;
+  if(!S.pid){toast(b.title||'この時間の予約はありません');return}
+  const s=lanesFor(st,null).find(i=>!B[key(d,S.store,i,t)]&&!isAbsent(S.store,d,i,t,st));
+  if(s===undefined){toast('この時間は全員の枠が埋まっています');return}
+  if(await book(s,t,S.pid,d)){S.sel=null;render()}
+  return}
+ if(b.dataset.k){S.sel=S.sel===b.dataset.k?null:b.dataset.k;render();return}
+ if(!S.pid){toast('先に患者さんを選んでください');$('q').focus();return}
+ if(await book(b.dataset.s==='q'?'q':+b.dataset.s,+b.dataset.t,S.pid,b.dataset.d?fromIso(b.dataset.d):S.date)){S.sel=null;render()}
+};
+$('detail').onclick=async e=>{
+ if(e.target.id==='cancel'){if(await unbook(S.sel)){S.sel=null;toast('予約を取り消しました')}render()}
+ if(e.target.id==='close'){S.sel=null;render()}
+};
+$('patient').onchange=e=>{const f=e.target.dataset.mk;if(f)S.mk[f]=e.target.checked?1:0};
+$('detail').onchange=e=>{const f=e.target.dataset.bm;if(!f||!S.sel)return;setMark(S.sel,f,e.target.checked?1:0)};
+function parseCsv(t){const r=[];let row=[],f='',q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}else if(c==='"')q=true;else if(c===','){row.push(f);f=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(f);f='';r.push(row);row=[]}else f+=c}if(f!==''||row.length){row.push(f);r.push(row)}return r}
+function decodeBuf(buf){try{return new TextDecoder('utf-8',{fatal:true}).decode(buf)}catch(e){return new TextDecoder('shift_jis').decode(buf)}}
+const GYO=[['あ','あいうえおぁぃぅぇぉゔ'],['か','かきくけこ'],['さ','さしすせそ'],['た','たちつてとっ'],['な','なにぬねの'],['は','はひふへほ'],['ま','まみむめも'],['や','やゆよゃゅょ'],['ら','らりるれろ'],['わ','わをん']];
+function gyoOf(p){
+ const t=kh(p.k||'');if(!t)return '他';
+ const c=t.normalize('NFD')[0];
+ for(const [g,cs] of GYO)if(cs.includes(c))return g;
+ return '他';
+}
+const PL={gy:'あ',n:200,sig:''};
+function plRender(force){
+ const el=$('plist');if(el.hidden)return;
+ const list=pats(),sig=S.store+'|'+PL.gy+'|'+PL.n+'|'+list.length+'|'+list.map(p=>p.n+p.k+(p.c||'')).join('').length;
+ if(!force&&sig===PL.sig)return;PL.sig=sig;
+ const cnt={};list.forEach(p=>{const g=gyoOf(p);cnt[g]=(cnt[g]||0)+1});
+ const tabs=GYO.map(x=>x[0]).concat(['他']);
+ const rows=list.filter(p=>gyoOf(p)===PL.gy).sort((a,b)=>kh(a.k||a.n).localeCompare(kh(b.k||b.n),'ja'));
+ const show=rows.slice(0,PL.n);
+ el.innerHTML='<div class="row"><strong>患者一覧（'+esc(sname(S.store))+'・'+list.length+'人）</strong><button class="btn" id="plClose">閉じる</button></div>'
+  +'<div class="row" style="margin:8px 0">'+tabs.map(g=>'<button class="btn" data-gy="'+g+'" aria-pressed="'+(g===PL.gy)+'" style="min-width:48px'+(g===PL.gy?';background:var(--pri);color:var(--pi);font-weight:700':'')+'">'+(g==='他'?'他':g+'行')+(cnt[g]?'<small style="font-weight:400"> '+cnt[g]+'</small>':'')+'</button>').join('')+'</div>'
+  +(show.length?'<div style="display:grid;gap:6px;max-height:50vh;overflow:auto">'+show.map(p=>'<button class="btn" data-pl="'+esc(p.id)+'" style="text-align:left;display:flex;gap:12px;flex-wrap:wrap"><span style="min-width:8em">'+esc(p.n)+(p.nw?'（新規）':'')+'</span><span class="note" style="margin:0">'+esc(p.k||'')+'</span><span class="note" style="margin:0">'+(p.c?'No.'+esc(p.c):'')+'</span></button>').join('')+'</div>'+(rows.length>show.length?'<button class="btn" id="plMore" style="margin-top:8px">さらに表示（残り'+(rows.length-show.length)+'人）</button>':''):'<span class="empty">この行の患者さんはいません</span>');
+}
+$('plbtn').onclick=()=>{$('plist').hidden=!$('plist').hidden;if(!$('plist').hidden){PL.n=200;plRender(true)}};
+$('plist').onclick=e=>{
+ const g=e.target.closest('[data-gy]');
+ if(g){PL.gy=g.dataset.gy;PL.n=200;plRender(true);return}
+ if(e.target.closest('#plClose')){$('plist').hidden=true;return}
+ if(e.target.closest('#plMore')){PL.n+=200;plRender(true);return}
+ const b=e.target.closest('[data-pl]');if(!b)return;
+ const p=P.find(x=>String(x.id)===b.dataset.pl);if(!p)return;
+ S.pid=p.id;S.mk={j:0,h:0,r:0,n:p.nw?1:0};S.sel=null;S.psig='';$('plist').hidden=true;render();window.scrollTo({top:0,behavior:'smooth'});
+};
+let STP=null;
+function stOpen(){
+ const st=STORES.find(x=>x.id===S.store);STP=null;
+ $('stform').innerHTML='<div class="row"><strong>'+esc(st.name)+'のスタッフ</strong><button class="btn" id="stClose">閉じる</button></div><div id="stlist"></div>'
+  +'<div class="row" style="margin-top:8px"><label>追加するスタッフ名 <input id="stNew" class="fi" maxlength="20" autocomplete="off"></label><button class="btn p" id="stAdd">スタッフを追加</button></div>'
+  +'<p>名前を直すと、過去の予約の表示も新しい名前になります。「削除」すると、そのスタッフの列は予約表から完全になくなり、そのスタッフの予約も消えます（患者さんの情報は消えません）。これからの予約が入っている場合は、確認が出ます。</p>';
+ stList();
+}
+function stList(){
+ const el=$('stlist');if(!el||$('stform').hidden)return;
+ const st=STORES.find(x=>x.id===S.store);
+ el.innerHTML=st.staff.map((nm,i)=>'<div class="row" style="border-top:1px solid var(--line);padding:6px 0">'
+  +(hid(st,i)?'<span style="min-width:11em;color:var(--mut)">'+esc(nm)+'（非表示）</span><button class="btn d" data-stdel="'+i+'">削除</button>'
+   :'<input class="fi" data-stname="'+i+'" value="'+esc(nm)+'" maxlength="20" aria-label="スタッフ名"><button class="btn d" data-stdel="'+i+'">削除</button>')+'</div>').join('');
+}
+async function stSave(st,staff,hidden,okMsg){
+ try{await API.setStaff(st.id,staff,hidden)}
+ catch(e){const m=(e&&e.message)||'';toast(/[぀-ヿ一-鿿]/.test(m)?m:'変更できませんでした。もう一度お試しください');stList();return false}
+ st.staff=staff;st.hid=hidden;S.psig='';render();stList();toast(okMsg);return true;
+}
+$('stbtn').onclick=()=>{$('stform').hidden=!$('stform').hidden;if(!$('stform').hidden)stOpen()};
+$('stform').onclick=async e=>{
+ const st=STORES.find(x=>x.id===S.store);
+ const H=()=>st.staff.map((_,i)=>hid(st,i));
+ if(e.target.id==='stClose'){$('stform').hidden=true;return}
+ if(e.target.id==='stAdd'){
+  if(!wr())return;
+  const nm=$('stNew').value.trim();
+  if(!nm){toast('スタッフ名を入力してください');return}
+  if(st.staff.length>=12){toast('スタッフの列は12までです');return}
+  if(await stSave(st,st.staff.concat([nm]),H().concat([false]),nm+'さんを追加しました'))$('stNew').value='';
+  return}
+ if(e.target.dataset.stdel!==undefined){
+  if(!wr())return;
+  const i=+e.target.dataset.stdel;
+  if(st.staff.length<=1){toast('スタッフを全員削除することはできません');return}
+  const nm=st.staff[i];
+  if(!confirm(nm+'さんを削除します。\n（'+nm+'さんの過去の予約も消えます）\nよろしいですか？'))return;
+  try{await API.deleteStaff(st.id,i,false)}
+  catch(err){
+   const m=(err&&err.message)||'',mm=m.match(/これからの予約が(\d+)件/);
+   if(!mm){toast(/[\u3040-\u30ff\u4e00-\u9fff]/.test(m)?m:'削除できませんでした。もう一度お試しください');return}
+   if(!confirm(nm+'さんには、これからの予約が'+mm[1]+'件入っています。\n削除すると、その予約も消えます。よろしいですか？'))return;
+   try{await API.deleteStaff(st.id,i,true)}catch(e2){toast('削除できませんでした。もう一度お試しください');return}
+  }
+  try{const rows=await API.stores();rows.forEach(r=>{const o=STORES.find(x=>x.id===r.id);if(o)Object.assign(o,norm(r))})}catch(_){}
+  await reload();S.psig='';render();stList();toast(nm+'さんを削除しました');
+  return}
+};
+$('stform').onchange=async e=>{
+ const i=e.target.dataset.stname;if(i===undefined)return;
+ const st=STORES.find(x=>x.id===S.store),nm=e.target.value.trim();
+ if(!wr())return;
+ if(!nm){e.target.value=st.staff[+i];toast('スタッフ名を入力してください');return}
+ if(nm===st.staff[+i])return;
+ const staff=st.staff.slice();staff[+i]=nm;
+ if(!await stSave(st,staff,st.staff.map((_,k)=>hid(st,k)),'名前を変更しました'))e.target.value=st.staff[+i];
+};
+let ABSD=[];
+function absChips(){
+ const el=$('abschips');if(!el)return;ABSD.sort();
+ el.innerHTML=ABSD.length?ABSD.map(d=>{const x=fromIso(d);return '<button class="btn" data-adrop="'+d+'" aria-label="'+md(x)+'を外す">'+md(x)+'（'+'日月火水木金土'[x.getDay()]+'） ×</button>'}).join(' '):'<span class="empty">日付を選んで「日付を追加」を押してください</span>';
+}
+function absOpen(){
+ const st=STORES.find(x=>x.id===S.store);
+ ABSD=[];
+ $('absform').innerHTML='<div class="row"><label>スタッフ <select id="absS">'+st.staff.map((x,i)=>hid(st,i)?'':'<option value="'+i+'">'+esc(x)+'</option>').join('')+'</select></label>'
+  +'<label>時間帯 <select id="absP"><option value="all">終日</option><option value="am">午前だけ</option><option value="pm">午後だけ</option></select></label></div>'
+  +'<div class="row" style="margin-top:8px"><label>日付 <input type="date" id="absD" class="fi" value="'+iso(S.date)+'"></label><button class="btn" id="absOne">日付を追加</button></div>'
+  +'<div class="row" style="margin-top:8px"><label>期間 <input type="date" id="absF" class="fi" value="'+iso(S.date)+'"></label>〜<input type="date" id="absT" class="fi" value="'+iso(S.date)+'" aria-label="期間の終わり"></div>'
+  +'<div class="row" style="margin-top:4px"><span>曜日</span>'+[1,2,3,4,5,6,0].filter(i=>st.days[i]).map(i=>'<label class="chk"><input type="checkbox" data-wd="'+i+'" checked> '+'日月火水木金土'[i]+'</label>').join('')+'<button class="btn" id="absRange">期間と曜日で追加</button></div>'
+  +'<p>期間の中で、チェックした曜日の日だけが追加されます（たとえば毎週水曜だけ休みなら、水曜以外のチェックを外します）。1回で選べるのは62日分までです。外すときは、日付を押します。</p>'
+  +'<div id="abschips" class="row" style="margin:6px 0"></div>'
+  +'<div class="row"><button class="btn p" id="absAdd">選んだ日を欠勤にする</button><button class="btn" id="absClose">閉じる</button></div>'
+  +'<p>欠勤にした列は、予約表で「欠勤」と表示され、予約を入れられなくなります（すでに入っている予約はそのまま残ります）。</p><div id="abslist"></div>';
+ absChips();absList();
+}
+function absList(){
+ const el=$('abslist');if(!el||$('absform').hidden)return;
+ const st=STORES.find(x=>x.id===S.store),today=iso(new Date());
+ const rows=ABSL.filter(a=>a.store_id===S.store&&a.absence_date>=today).sort((a,b)=>a.absence_date<b.absence_date?-1:a.absence_date>b.absence_date?1:a.lane-b.lane);
+ const pl={all:'終日',am:'午前',pm:'午後'};
+ el.innerHTML=rows.length?'<ul style="list-style:none;margin:6px 0 0;padding:0">'+rows.map(a=>{const d=fromIso(a.absence_date);return '<li class="row" style="border-top:1px solid var(--line);padding:4px 0"><span>'+md(d)+'（'+'日月火水木金土'[d.getDay()]+'）</span><span>'+esc(st.staff[a.lane]||'（削除されたスタッフ）')+'</span><span>'+pl[a.part]+'</span><button class="btn d" data-adel="'+a.id+'">取り消し</button></li>'}).join('')+'</ul>':'<span class="empty">これからの欠勤の設定はありません</span>';
+}
+$('absbtn').onclick=()=>{$('absform').hidden=!$('absform').hidden;if(!$('absform').hidden)absOpen()};
+$('absform').onclick=async e=>{
+ const id=e.target.id;
+ if(id==='absClose'){$('absform').hidden=true;return}
+ if(e.target.dataset.adel){
+  if(!wr())return;
+  try{await API.delAbsence(e.target.dataset.adel)}catch(x){toast('取り消せませんでした。もう一度お試しください');return}
+  ABSL=ABSL.filter(a=>a.id!==e.target.dataset.adel);rebuildAbs();render();absList();toast('欠勤の設定を取り消しました');return}
+ if(id==='absOne'){
+  const d=$('absD').value;if(!d){toast('日付を選んでください');return}
+  if(ABSD.length>=62){toast('一度に選べるのは62日までです');return}
+  if(!ABSD.includes(d))ABSD.push(d);absChips();return}
+ if(id==='absRange'){
+  const f=$('absF').value,t=$('absT').value;
+  if(!f||!t||f>t){toast('期間の始まりと終わりを正しく選んでください');return}
+  const st=STORES.find(x=>x.id===S.store);let d=fromIso(f),n=0;const end=fromIso(t);
+  const wd=new Set([...document.querySelectorAll('[data-wd]:checked')].map(x=>+x.dataset.wd));
+  if(!wd.size){toast('曜日を1つ以上選んでください');return}
+  while(d<=end){if(st.days[d.getDay()]&&wd.has(d.getDay())){const k=iso(d);if(!ABSD.includes(k)){if(ABSD.length>=62){toast('一度に選べるのは62日までです');break}ABSD.push(k);n++}}d=addDays(d,1)}
+  absChips();toast(n+'日を追加しました');return}
+ if(e.target.dataset.adrop){ABSD=ABSD.filter(x=>x!==e.target.dataset.adrop);absChips();return}
+ if(id==='absAdd'){
+  if(!wr())return;
+  const lane=+$('absS').value,part=$('absP').value;
+  if(!ABSD.length){toast('日付を選んでください');return}
+  const dates=ABSD.slice(),rows=dates.map(d=>({store_id:S.store,absence_date:d,lane,part}));
+  let res;
+  try{res=await API.addAbsences(rows)}catch(x){toast('設定できませんでした。もう一度お試しください');return}
+  res.forEach(r=>ABSL.push(r));rebuildAbs();
+  const st=STORES.find(x=>x.id===S.store);
+  const n=Object.keys(B).filter(k=>{const q=keyParts(k);return !B[k].cont&&q.store===S.store&&dates.includes(q.date)&&String(q.s)===String(lane)&&isAbsent(S.store,q.date,lane,q.t,st)}).length;
+  const skip=rows.length-res.length;
+  ABSD=[];absChips();render();absList();
+  toast(st.staff[lane]+'さんを'+res.length+'日分、欠勤にしました'+(skip?'（'+skip+'日はすでに設定済み）':'')+(n?'（すでに予約が'+n+'件あります。そのまま残っています）':''));
+ }
+};
+$('csv').onchange=e=>{
+ const file=e.target.files[0];if(!file)return;
+ const rd=new FileReader();
+ rd.onload=async()=>{
+  const rows=parseCsv(decodeBuf(rd.result)).filter(r=>r.some(x=>x&&x.trim()));
+  const h=(rows[0]||[]).map(x=>x.replace(/^﻿/,'').trim()),ci=n=>h.indexOf(n);
+  const a=ci('管理番号'),b=ci('氏名'),c=ci('フリガナ');
+  if(a<0||b<0){toast('「管理番号」と「氏名」の列が見つかりません');e.target.value='';return}
+  if(!wr()){e.target.value='';return}
+  const known={};P.forEach(p=>{if(p.c)known[p.c]=p});
+  const add=[],upd=[],seen={};
+  rows.slice(1).forEach(r=>{
+   const num=(r[a]||'').trim(),nm=(r[b]||'').trim();if(!num||!nm||seen[num])return;seen[num]=1;
+   const kn=c>=0?(r[c]||'').normalize('NFKC').trim():'',ex=known[num];
+   if(ex){if(ex.n!==nm||(c>=0&&ex.k!==kn))upd.push([ex,nm,kn])}else add.push({kanri_no:num,name:nm,kana:kn,store_id:S.store});
+  });
+  toast('取り込み中です…');
+  let res={ok:0,fail:0},uf=0;
+  try{res=await API.insertPatients(add)}catch(x){toast('取り込めませんでした。もう一度お試しください');e.target.value='';return}
+  for(const [ex,nm,kn] of upd){try{await API.updatePatientName(ex.id,nm,c>=0?kn:ex.k)}catch(x){uf++}}
+  try{await loadPatients()}catch(x){}
+  S.pid=null;S.sel=null;S.q='';$('q').value='';$('sug').innerHTML='';S.psig='';
+  render();sugg();
+  toast(sname(S.store)+'：新しく'+res.ok+'人を追加'+(upd.length-uf?'、'+(upd.length-uf)+'人を更新':'')+((res.fail+uf)?'（'+(res.fail+uf)+'人は取り込めませんでした）':''));
+  e.target.value='';
+ };
+ rd.readAsArrayBuffer(file);
+};
+$('adminView').addEventListener('toggle',e=>{const d=e.target.dataset&&e.target.dataset.d;if(d)S.cfgOpen[d]=e.target.open},true);
+$('adminView').onchange=e=>{
+ const t=e.target,id=t.dataset.c;if(!id)return;
+ if(!S.admin){toast('設定を変更できるのは管理者だけです');admin();return}
+ const st=STORES.find(s=>s.id===id),f=t.dataset.f;
+ if(f.startsWith('day')){st.days[+f.slice(3)]=t.checked;saveSettings(st);admin();return}
+ if(f==='hol'){st.hol=t.checked;saveSettings(st);admin();return}
+ if(f==='halfday'){st.half=[0,1,2,3,4,5,6].map(i=>i===+t.value);saveSettings(st);admin();return}
+ const old=st[f];st[f]=+t.value;
+ if(!(st.first<=st.lastAm&&st.lastAm<st.pm&&st.pm<=st.lastPm&&st.first<=st.halfEnd&&st.halfEnd<=st.lastPm)){st[f]=old;toast('時間の順番が合いません。開始 ≦ 午前の最終受付 ＜ 午後の開始 ≦ 午後の最終受付 にしてください')}
+ else saveSettings(st);
+ admin();
+};
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{S.view=b.dataset.view;S.one=false;S.sel=null;render()});
+$('wst').onchange=e=>{S.ws=+e.target.value;S.sel=null;render()};
+$('adminView').onclick=e=>{const b=e.target.closest('[data-day]');if(!b)return;S.date=fromIso(b.dataset.day);S.view='day';S.one=false;ensureRange();render()};
+
+function showLogin(msg){$('app').hidden=true;$('login').hidden=false;$('lerr').textContent=msg||'';$('lgo').disabled=false}
+$('lform').onsubmit=async e=>{
+ e.preventDefault();$('lgo').disabled=true;$('lerr').textContent='';
+ try{const u=await API.login($('le').value.trim(),$('lp').value);$('lp').value='';await boot(u)}
+ catch(x){showLogin('メールアドレスかパスワードが違います')}
+};
+$('logout').onclick=async()=>{try{await API.logout()}catch(e){}location.reload()};
+async function boot(user){
+ ME=user;S.mode='loading';
+ let pr;
+ try{pr=await API.profile(user.id)}catch(e){showLogin('権限を読み込めませんでした。通信を確認してもう一度お試しください');return}
+ if(!pr){await API.logout().catch(()=>{});showLogin('このアカウントには、まだ権限が登録されていません。管理者に連絡してください。');return}
+ S.admin=pr.role==='admin';S.canW=true;
+ try{
+  const rows=await API.stores();STORES.length=0;rows.forEach(r=>STORES.push(norm(r)));
+  (await API.holidays()).forEach(h=>{HOL[h.day]=h.name});
+  await loadPatients();
+ }catch(e){showLogin('データを読み込めませんでした。通信を確認してもう一度お試しください');return}
+ let saved='';try{saved=localStorage.getItem('rsv_store')||''}catch(e){}
+ S.store=S.admin?(STORES.some(s=>s.id===saved)?saved:STORES[0].id):pr.store_id;
+ $('myStore').innerHTML=STORES.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+ $('myStore').value=S.store;
+ S.role='staff';S.date=new Date();S.date.setHours(0,0,0,0);
+ S.rf=iso(addDays(S.date,-60));S.rt=iso(addDays(S.date,120));
+ $('login').hidden=true;$('app').hidden=false;
+ render();sugg();
+ await reload();
+ API.subscribe(scheduleReload);
+ setInterval(()=>{if(!document.hidden)reload()},30000);
+}
+async function init(){
+ sb=supabase.createClient(SB_URL,SB_KEY);
+ let u=null;try{u=await API.user()}catch(e){}
+ if(u)boot(u);else showLogin('');
+}
+init();
+</script>
+</body>
+</html>
