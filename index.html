@@ -103,7 +103,7 @@ button{cursor:pointer}
 <p class="note" id="mode">共有の保存先に接続しています…</p>
 <div class="bar">
 <label id="storeWrap">店舗 <select id="myStore"></select></label>
-<div class="row"><button class="btn" id="prev" aria-label="前の日">‹</button><strong id="dl"></strong><button class="btn" id="next" aria-label="次の日">›</button><button class="btn" id="today">今日</button></div>
+<div class="row"><button class="btn" id="prev" aria-label="前の日">‹</button><strong id="dl"></strong><button class="btn" id="next" aria-label="次の日">›</button><button class="btn" id="today">今日</button><button class="btn" id="wkall" hidden>週全体を見る</button></div>
 <div class="seg" id="vseg"><button data-view="day" aria-pressed="true">日</button><button data-view="week" aria-pressed="false">週</button></div>
 <label id="wsWrap" hidden>スタッフ <select id="wst"></select></label>
 </div>
@@ -151,7 +151,7 @@ const sname=id=>(STORES.find(s=>s.id===id)||{name:id}).name;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const P=[];
 const B={};
-const S={role:'staff',store:'',date:new Date(),pid:null,sel:null,q:'',view:'day',ws:0,cfgOpen:{},mk:{j:0,h:0,r:0,n:0},mode:'loading',admin:false,canW:true,psig:'',rf:'',rt:''};
+const S={one:false,role:'staff',store:'',date:new Date(),pid:null,sel:null,q:'',view:'day',ws:0,cfgOpen:{},mk:{j:0,h:0,r:0,n:0},mode:'loading',admin:false,canW:true,psig:'',rf:'',rt:''};
 S.date.setHours(0,0,0,0);
 let sb=null,ME=null;
 let ABSL=[];const ABS={};
@@ -176,7 +176,7 @@ function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');cle
 const md=d=>(d.getMonth()+1)+'月'+d.getDate()+'日';
 const wk0=d=>addDays(d,-((d.getDay()+6)%7));
 const fromIso=s=>{const a=s.split('-');return new Date(+a[0],+a[1]-1,+a[2])};
-function label(){const d=S.date;$('dl').textContent=(S.role==='staff'||S.view!=='day')?md(wk0(d))+'〜'+md(addDays(wk0(d),6)):md(d)+'（'+'日月火水木金土'[d.getDay()]+'）'}
+function label(){const d=S.date;$('dl').textContent=S.one&&S.role==='staff'?md(d)+'（'+'日月火水木金土'[d.getDay()]+'）':(S.role==='staff'||S.view!=='day')?md(wk0(d))+'〜'+md(addDays(wk0(d),6)):md(d)+'（'+'日月火水木金土'[d.getDay()]+'）'}
 function banner(){
  const role=S.admin?'管理者':'受付';
  const m={loading:'接続しています…',live:'接続中。予約はすべての端末にすぐ反映されます。',error:'サーバーとの接続が切れました。通信を確認して、ページを開き直してください。'}[S.mode]||'';
@@ -263,9 +263,9 @@ function weekTable(){
 }
 function sheetTable(){
  const st=STORES.find(s=>s.id===S.store),w=wk0(S.date);
- const days=[1,2,3,4,5,6].concat(st.days[0]?[0]:[]).map(i=>addDays(w,(i+6)%7));
+ const days=S.one?[S.date]:[1,2,3,4,5,6].concat(st.days[0]?[0]:[]).map(i=>addDays(w,(i+6)%7));
  const lanes=lanesFor(st,days),n=lanes.length,c=n+1;
- $('tt').style.gridTemplateColumns='52px repeat('+days.length*c+',minmax(60px,1fr))';
+ $('tt').style.gridTemplateColumns='52px repeat('+days.length*c+',minmax('+(S.one?'104px':'60px')+',1fr))';
  const bd=' style="border-left:2px solid var(--ink)"';
  let h='<div class="hd cn"></div>'+days.map(d=>'<div class="hd'+(iso(d)===iso(new Date())?' td':'')+'" style="grid-column:span '+c+';border-left:2px solid var(--ink)">'+(d.getMonth()+1)+'/'+d.getDate()+'（'+'日月火水木金土'[d.getDay()]+'）</div>').join('');
  h+='<div class="hd h2 cn"></div>'+days.map(()=>lanes.map((x,i)=>'<div class="hd h2"'+(i?'':bd)+'>'+esc(lnm(st,x))+'</div>').join('')+'<div class="hd h2">10分</div>').join('');
@@ -337,6 +337,7 @@ function render(){
  document.querySelectorAll('[data-role]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.role===S.role));
  document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.view===S.view));
  $('wsWrap').hidden=!(staff&&S.view==='week');
+ $('wkall').hidden=!(staff&&S.one);
  $('tt').classList.toggle('sheet',S.view!=='week'||S.ws===-2);
  if(staff){patient();detail();S.view==='week'?weekTable():sheetTable();plRender();fit()}else admin();
 }
@@ -464,9 +465,10 @@ async function linkNew(p,num){
 }
 
 $('myStore').onchange=e=>{S.store=e.target.value;try{localStorage.setItem('rsv_store',S.store)}catch(x){}S.ws=0;S.pid=null;S.sel=null;S.q='';$('q').value='';sugg();render();plRender(true);if(!$('absform').hidden)absOpen();if(!$('stform').hidden)stOpen()};
-$('prev').onclick=()=>{S.date=addDays(S.date,(S.role==='staff'||S.view!=='day')?-7:-1);S.sel=null;ensureRange();render()};
-$('next').onclick=()=>{S.date=addDays(S.date,(S.role==='staff'||S.view!=='day')?7:1);S.sel=null;ensureRange();render()};
-$('today').onclick=()=>{S.date=new Date();S.date.setHours(0,0,0,0);S.sel=null;ensureRange();render();const e=document.querySelector('#tt .hd.td'),sc=document.querySelector('.scroll');if(e&&sc)sc.scrollLeft=Math.max(0,e.offsetLeft-60);const d=new Date();toast('今日（'+(d.getMonth()+1)+'/'+d.getDate()+'）を表示しました')};
+$('prev').onclick=()=>{S.date=addDays(S.date,S.one?-1:(S.role==='staff'||S.view!=='day')?-7:-1);S.sel=null;ensureRange();render()};
+$('next').onclick=()=>{S.date=addDays(S.date,S.one?1:(S.role==='staff'||S.view!=='day')?7:1);S.sel=null;ensureRange();render()};
+$('today').onclick=()=>{S.date=new Date();S.date.setHours(0,0,0,0);S.sel=null;S.one=true;S.view='day';ensureRange();render();const e=document.querySelector('#tt .hd.td'),sc=document.querySelector('.scroll');if(e&&sc)sc.scrollLeft=Math.max(0,e.offsetLeft-60);const d=new Date();toast('今日（'+(d.getMonth()+1)+'/'+d.getDate()+'）だけを表示しています')};
+$('wkall').onclick=()=>{S.one=false;S.sel=null;render()};
 document.querySelectorAll('[data-role]').forEach(b=>b.onclick=()=>{S.role=b.dataset.role;render()});
 $('q').oninput=e=>{S.q=e.target.value;sugg()};
 $('q').onfocus=sugg;
@@ -715,9 +717,9 @@ $('adminView').onchange=e=>{
  else saveSettings(st);
  admin();
 };
-document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{S.view=b.dataset.view;S.sel=null;render()});
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{S.view=b.dataset.view;S.one=false;S.sel=null;render()});
 $('wst').onchange=e=>{S.ws=+e.target.value;S.sel=null;render()};
-$('adminView').onclick=e=>{const b=e.target.closest('[data-day]');if(!b)return;S.date=fromIso(b.dataset.day);S.view='day';ensureRange();render()};
+$('adminView').onclick=e=>{const b=e.target.closest('[data-day]');if(!b)return;S.date=fromIso(b.dataset.day);S.view='day';S.one=false;ensureRange();render()};
 
 function showLogin(msg){$('app').hidden=true;$('login').hidden=false;$('lerr').textContent=msg||'';$('lgo').disabled=false}
 $('lform').onsubmit=async e=>{
