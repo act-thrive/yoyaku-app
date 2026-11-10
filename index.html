@@ -156,7 +156,7 @@ const sname=id=>(STORES.find(s=>s.id===id)||{name:id}).name;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const P=[];
 const B={};
-const S={one:false,role:'staff',store:'',date:new Date(),pid:null,sel:null,q:'',view:'day',ws:0,cfgOpen:{},mk:{j:0,h:0,r:0,n:0},mode:'loading',admin:false,canW:true,psig:'',rf:'',rt:''};
+const S={mv:null,one:false,role:'staff',store:'',date:new Date(),pid:null,sel:null,q:'',view:'day',ws:0,cfgOpen:{},mk:{j:0,h:0,r:0,n:0},mode:'loading',admin:false,canW:true,psig:'',rf:'',rt:''};
 S.date.setHours(0,0,0,0);
 let sb=null,ME=null;
 let ABSL=[];const ABS={};
@@ -218,12 +218,19 @@ function patient(){
  <p>下の表の空き枠をタップすると予約が入ります。店舗を変更しても、過去の予約は元の店舗に残ります。</p></div>`;
 }
 function detail(){
+ if(S.mv){
+  const mb=B[S.mv];
+  if(!mb){S.mv=null}
+  else{const [dk0,,s0,t0]=S.mv.split('|');
+   $('detail').innerHTML='<div class="panel row" style="background:var(--hi)"><span><strong>'+esc(pn(mb.pid))+'さん</strong>（'+md(fromIso(dk0))+' '+fmt(+t0)+'）の移動先の空いている枠を押してください。日付を変えるときは「‹」「›」で動かせます。</span><button class="btn" id="mvcancel">やめる</button></div>';
+   return}
+ }
  const b=S.sel&&B[S.sel];
  if(!b){$('detail').innerHTML='';return}
  const pb=b.cont?B[b.cont]:b;
  const [dk,,s,t]=S.sel.split('|'),dd=fromIso(dk);
  const pid=b.pid;
- $('detail').innerHTML=`<div class="panel row"><span>${esc(pn(pid))}さん　${md(dd)} ${fmt(+t)}　${s==='q'?'10分枠':lnm(STORES.find(x=>x.id===S.store),+s)}</span>${MK.map(([f,l])=>`<label class="chk"><input type="checkbox" data-bm="${f}"${(pb&&pb.m&&pb.m[f])?' checked':''}> ${l}</label>`).join('')}<button class="btn d" id="cancel">予約を取り消す</button><button class="btn" id="close">閉じる</button></div>`;
+ $('detail').innerHTML=`<div class="panel row"><span>${esc(pn(pid))}さん　${md(dd)} ${fmt(+t)}　${s==='q'?'10分枠':lnm(STORES.find(x=>x.id===S.store),+s)}</span>${MK.map(([f,l])=>`<label class="chk"><input type="checkbox" data-bm="${f}"${(pb&&pb.m&&pb.m[f])?' checked':''}> ${l}</label>`).join('')}<button class="btn" id="mvbtn">時間を変更</button><button class="btn d" id="cancel">予約を取り消す</button><button class="btn" id="close">閉じる</button></div>`;
 }
 const mk=b=>{if(b.cont)return '<span class="nm" style="color:var(--mut)">↓</span>';const m=b.m||{};return '<span class="nm'+(m.n?' nw':'')+(m.j?' jh':'')+(m.k?' kc':'')+'">'+esc(pn(b.pid))+'</span>'+(m.r?'<i class="rs">レセ</i>':'')+(m.h?'<i class="hr">ハ</i>':'')};
 function table(){
@@ -369,6 +376,7 @@ const API={
  appts(from,to){return pageAll((a,b)=>sb.from('appointments').select('id,store_id,appt_date,lane,start_min,dur_min,patient_id,marks').eq('status','confirmed').gte('appt_date',from).lte('appt_date',to).order('id').range(a,b))},
  async addAppt(row){const {data,error}=await sb.from('appointments').insert(row).select('id').single();if(error)throw error;return data.id},
  async cancelAppt(id){const {error}=await sb.from('appointments').update({status:'cancelled'}).eq('id',id);if(error)throw error},
+ async moveAppt(id,row){const {error}=await sb.from('appointments').update(row).eq('id',id);if(error)throw error},
  async setMarks(id,m){const {error}=await sb.from('appointments').update({marks:m}).eq('id',id);if(error)throw error},
  async addPatient(row){const {data,error}=await sb.from('patients').insert(row).select('id,kanri_no,name,kana,store_id').single();if(error)throw error;return data},
  async setKanri(id,num){const {error}=await sb.from('patients').update({kanri_no:num}).eq('id',id);if(error)throw error},
@@ -443,6 +451,32 @@ async function book(s,t,pid,date){
  S.mk={j:0,h:0,r:0,n:0};
  toast(pn(pid)+'さんを予約しました　'+fmt(t)+'　'+(s==='q'?'10分枠':lnm(st0,s)));
  return true;
+}
+async function moveBooking(s,t,date){
+ const pk=S.mv,pb=B[pk];
+ if(!pb||pb.cont){S.mv=null;return false}
+ if(!wr())return false;
+ const st0=STORES.find(x=>x.id===S.store),a=pk.split('|'),os=a[2]==='q'?'q':+a[2],ot=+a[3];
+ const two=pb.span===2,nk=key(date,S.store,s,t);
+ const own=new Set([pk]);if(two)own.add(a[0]+'|'+a[1]+'|'+a[2]+'|'+(ot+20));
+ if(nk===pk){toast('同じ枠です。移したい別の枠を押してください');return false}
+ if((s==='q')!==(os==='q')){toast('10分枠と通常の枠のあいだは、移せません');return false}
+ if(!isOpenDay(st0,date)){toast('その日は休診日です');return false}
+ if(t<st0.first||t>st0.lastPm||isBreak(st0,t,date)){toast('その時間は受付時間外です');return false}
+ if(B[nk]&&!own.has(nk)){toast('その枠はすでに埋まっています');return false}
+ if(isAbsent(S.store,date,s,t,st0)){toast('このスタッフは、その時間は欠勤に設定されています');return false}
+ const k2=key(date,S.store,s,t+20);
+ if(two){
+  if(t+20>st0.lastPm||isBreak(st0,t+20,date)){toast('2枠続けて取れません（営業時間の終わりか休憩に重なります）');return false}
+  if(B[k2]&&!own.has(k2)){toast('次の枠がすでに埋まっています');return false}
+ }
+ try{await API.moveAppt(pb.id,{appt_date:iso(date),lane:String(s),start_min:t})}
+ catch(e){toast(errMsg(e,'時間を変更できませんでした。もう一度お試しください'));reload();return false}
+ own.forEach(k=>delete B[k]);
+ B[nk]={pid:pb.pid,m:pb.m,span:pb.span,id:pb.id};
+ if(two)B[k2]={pid:pb.pid,cont:nk};
+ toast(pn(pb.pid)+'さんを '+md(date)+' '+fmt(t)+' に変更しました');
+ S.mv=null;S.sel=null;return true;
 }
 async function unbook(k){
  const b=B[k];if(!b)return false;
@@ -521,18 +555,34 @@ $('tt').onclick=async e=>{
  const b=e.target.closest('button');if(!b)return;
  if(b.dataset.a){
   const st=STORES.find(x=>x.id===S.store),d=fromIso(b.dataset.d),t=+b.dataset.t;
+  if(S.mv){
+   const oa=S.mv.split('|'),ol=oa[2]==='q'?-1:+oa[2],ls=lanesFor(st,null);
+   const order=(ls.includes(ol)?[ol]:[]).concat(ls.filter(i=>i!==ol));
+   const sm=order.find(i=>(!B[key(d,S.store,i,t)]||key(d,S.store,i,t)===S.mv)&&!isAbsent(S.store,d,i,t,st));
+   if(sm===undefined){toast('この時間は全員の枠が埋まっています');return}
+   if(await moveBooking(sm,t,d))render();
+   return}
   if(!S.pid){toast(b.title||'この時間の予約はありません');return}
   const s=lanesFor(st,null).find(i=>!B[key(d,S.store,i,t)]&&!isAbsent(S.store,d,i,t,st));
   if(s===undefined){toast('この時間は全員の枠が埋まっています');return}
   if(await book(s,t,S.pid,d)){S.sel=null;render()}
   return}
- if(b.dataset.k){S.sel=S.sel===b.dataset.k?null:b.dataset.k;render();return}
+ if(b.dataset.k){
+  if(S.mv){
+   const q=keyParts(b.dataset.k),own=B[b.dataset.k];
+   if(own&&own.cont===S.mv){if(await moveBooking(q.s==='q'?'q':+q.s,q.t,fromIso(q.date)))render();return}
+   if(b.dataset.k===S.mv){toast('同じ枠です。移したい別の枠を押してください');return}
+   toast('その枠はすでに埋まっています');return}
+  S.sel=S.sel===b.dataset.k?null:b.dataset.k;render();return}
+ if(S.mv){if(await moveBooking(b.dataset.s==='q'?'q':+b.dataset.s,+b.dataset.t,b.dataset.d?fromIso(b.dataset.d):S.date))render();return}
  if(!S.pid){toast('先に患者さんを選んでください');$('q').focus();return}
  if(await book(b.dataset.s==='q'?'q':+b.dataset.s,+b.dataset.t,S.pid,b.dataset.d?fromIso(b.dataset.d):S.date)){S.sel=null;render()}
 };
 $('detail').onclick=async e=>{
  if(e.target.id==='cancel'){if(await unbook(S.sel)){S.sel=null;toast('予約を取り消しました')}render()}
  if(e.target.id==='close'){S.sel=null;render()}
+ if(e.target.id==='mvbtn'){const b=B[S.sel];if(!b)return;if(!wr())return;S.mv=b.cont||S.sel;S.sel=null;render();toast('移動先の空いている枠を押してください')}
+ if(e.target.id==='mvcancel'){S.mv=null;render()}
 };
 $('patient').onchange=e=>{const f=e.target.dataset.mk;if(f)S.mk[f]=e.target.checked?1:0};
 $('detail').onchange=e=>{const f=e.target.dataset.bm;if(!f||!S.sel)return;setMark(S.sel,f,e.target.checked?1:0)};
