@@ -40,6 +40,7 @@ button{cursor:pointer}
 .stk #q{margin:0}.stk #sug{margin-top:6px}
 .tt{display:grid;min-width:max-content;width:100%}
 .hd{font-weight:700;text-align:center;padding:8px 4px;border-bottom:1px solid var(--line);background:var(--sf);position:sticky;top:0;z-index:3}
+.tt .hr{border-top:2px solid var(--ink)!important}
 .hd.td{background:var(--hi)}
 .hd.h2{top:var(--h1,36px)}
 .hd.cn{left:0;z-index:5}
@@ -90,6 +91,10 @@ button{cursor:pointer}
 #login .fi{width:100%;box-sizing:border-box}
 #lerr{color:var(--bad);min-height:1.4em}
 </style>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="予約表">
 </head>
 <body>
 <section id="login" class="panel" hidden>
@@ -319,6 +324,13 @@ function admin(){
  });
  $('adminView').innerHTML='<p class="note">全店舗の予約を確認できます（確認のみ。変更は各店舗の受付で行います）。</p>'+h;
 }
+function hourLines(){
+ const c=[...$('tt').children];let on=false,seen=0;
+ c.forEach(e=>{
+  if(e.classList.contains('tm')){on=/:00$/.test(e.textContent)&&seen>0;seen++}
+  e.classList.toggle('hr',on&&!e.classList.contains('hd'));
+ });
+}
 function fit(){
  const k=$('stk'),sc=document.querySelector('.scroll');if(!k||!sc)return;
  document.documentElement.style.setProperty('--stkh',(k.offsetHeight+2)+'px');
@@ -339,7 +351,7 @@ function render(){
  $('wsWrap').hidden=!(staff&&S.view==='week');
  $('wkall').hidden=!(staff&&S.one);
  $('tt').classList.toggle('sheet',S.view!=='week'||S.ws===-2);
- if(staff){patient();detail();S.view==='week'?weekTable():sheetTable();plRender();fit()}else admin();
+ if(staff){patient();detail();S.view==='week'?weekTable():sheetTable();plRender();hourLines();fit()}else admin();
 }
 function wr(){if(S.canW)return true;toast('この画面は閲覧のみです');return false}
 function lastSlot(pid){let best=null;Object.keys(B).forEach(k=>{const b=B[k];if(b.cont||b.pid!==pid)return;if(!best||k>best)best=k});if(!best)return null;const p=keyParts(best);return {s:p.s==='q'?'q':+p.s,t:p.t}}
