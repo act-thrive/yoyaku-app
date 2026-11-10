@@ -354,6 +354,7 @@ const API={
    for(const x of ch){const r2=await sb.from('patients').upsert(x,{onConflict:'kanri_no',ignoreDuplicates:true});if(r2.error)fail++;else ok++}}
   return {ok,fail}},
  async updatePatientName(id,name,kana){const {error}=await sb.from('patients').update({name,kana}).eq('id',id);if(error)throw error},
+ async deleteStaff(id,i,force){const {error}=await sb.rpc('delete_store_staff',{p_store:id,p_index:i,p_force:!!force});if(error)throw error},
  async setStaff(id,staff,hidden){const {error}=await sb.rpc('set_store_staff',{p_store:id,p_staff:staff,p_hidden:hidden});if(error)throw error},
  async saveStore(st){const {error}=await sb.from('stores').update({days:st.days,half:st.half,hol:st.hol,first_min:st.first,last_am:st.lastAm,pm_min:st.pm,last_pm:st.lastPm,half_end:st.halfEnd}).eq('id',st.id);if(error)throw error},
  async absences(from,to){const {data,error}=await sb.from('staff_absences').select('id,store_id,absence_date,lane,part').gte('absence_date',from).lte('absence_date',to).order('absence_date');if(error)throw error;return data},
@@ -542,15 +543,15 @@ function stOpen(){
  const st=STORES.find(x=>x.id===S.store);STP=null;
  $('stform').innerHTML='<div class="row"><strong>'+esc(st.name)+'のスタッフ</strong><button class="btn" id="stClose">閉じる</button></div><div id="stlist"></div>'
   +'<div class="row" style="margin-top:8px"><label>追加するスタッフ名 <input id="stNew" class="fi" maxlength="20" autocomplete="off"></label><button class="btn p" id="stAdd">スタッフを追加</button></div>'
-  +'<p>名前を直すと、過去の予約の表示も新しい名前になります。「削除」すると、その列は予約表から外れます。これからの予約が残っている列は、削除できません（先に取り消すか、別の日に移してください）。過去の予約がある週には、「（削除済）」と付いて表示されます。</p>';
+  +'<p>名前を直すと、過去の予約の表示も新しい名前になります。「削除」すると、そのスタッフの列は予約表から完全になくなり、そのスタッフの予約も消えます（患者さんの情報は消えません）。これからの予約が入っている場合は、確認が出ます。</p>';
  stList();
 }
 function stList(){
  const el=$('stlist');if(!el||$('stform').hidden)return;
  const st=STORES.find(x=>x.id===S.store);
  el.innerHTML=st.staff.map((nm,i)=>'<div class="row" style="border-top:1px solid var(--line);padding:6px 0">'
-  +(hid(st,i)?'<span style="min-width:11em;color:var(--mut)">'+esc(nm)+'（削除済）</span><button class="btn" data-strestore="'+i+'">元に戻す</button>'
-   :'<input class="fi" data-stname="'+i+'" value="'+esc(nm)+'" maxlength="20" aria-label="スタッフ名"><button class="btn d" data-stdel="'+i+'">'+(STP===i?'本当に削除する':'削除')+'</button>')+'</div>').join('');
+  +(hid(st,i)?'<span style="min-width:11em;color:var(--mut)">'+esc(nm)+'（非表示）</span><button class="btn d" data-stdel="'+i+'">削除</button>'
+   :'<input class="fi" data-stname="'+i+'" value="'+esc(nm)+'" maxlength="20" aria-label="スタッフ名"><button class="btn d" data-stdel="'+i+'">削除</button>')+'</div>').join('');
 }
 async function stSave(st,staff,hidden,okMsg){
  try{await API.setStaff(st.id,staff,hidden)}
@@ -572,20 +573,19 @@ $('stform').onclick=async e=>{
  if(e.target.dataset.stdel!==undefined){
   if(!wr())return;
   const i=+e.target.dataset.stdel;
-  if(STP!==i){STP=i;stList();setTimeout(()=>{if(STP===i){STP=null;stList()}},4000);return}
-  STP=null;
-  const h=H();h[i]=true;
-  if(!h.some(x=>!x)){toast('スタッフを全員削除することはできません');stList();return}
-  const today=iso(new Date());
-  const n=Object.keys(B).filter(k=>{const q=keyParts(k);return !B[k].cont&&q.store===S.store&&String(q.s)===String(i)&&q.date>=today}).length;
-  if(n){toast(st.staff[i]+'さんの列には、これからの予約が'+n+'件あります。先に取り消すか、別の日に移してください');stList();return}
-  await stSave(st,st.staff.slice(),h,st.staff[i]+'さんを削除しました');
+  if(st.staff.length<=1){toast('スタッフを全員削除することはできません');return}
+  const nm=st.staff[i];
+  if(!confirm(nm+'さんを削除します。\n（'+nm+'さんの過去の予約も消えます）\nよろしいですか？'))return;
+  try{await API.deleteStaff(st.id,i,false)}
+  catch(err){
+   const m=(err&&err.message)||'',mm=m.match(/これからの予約が(\d+)件/);
+   if(!mm){toast(/[\u3040-\u30ff\u4e00-\u9fff]/.test(m)?m:'削除できませんでした。もう一度お試しください');return}
+   if(!confirm(nm+'さんには、これからの予約が'+mm[1]+'件入っています。\n削除すると、その予約も消えます。よろしいですか？'))return;
+   try{await API.deleteStaff(st.id,i,true)}catch(e2){toast('削除できませんでした。もう一度お試しください');return}
+  }
+  try{const rows=await API.stores();rows.forEach(r=>{const o=STORES.find(x=>x.id===r.id);if(o)Object.assign(o,norm(r))})}catch(_){}
+  await reload();S.psig='';render();stList();toast(nm+'さんを削除しました');
   return}
- if(e.target.dataset.strestore!==undefined){
-  if(!wr())return;
-  const i=+e.target.dataset.strestore,h=H();h[i]=false;
-  await stSave(st,st.staff.slice(),h,st.staff[i]+'さんを元に戻しました');
- }
 };
 $('stform').onchange=async e=>{
  const i=e.target.dataset.stname;if(i===undefined)return;
