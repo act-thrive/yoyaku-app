@@ -389,9 +389,9 @@ const API={
  async movePatient(id,store){const {error}=await sb.rpc('move_patient',{p_id:id,p_store:store});if(error)throw error},
  async insertPatients(rows){let ok=0,fail=0;
   for(let i=0;i<rows.length;i+=300){const ch=rows.slice(i,i+300);
-   const r=await sb.from('patients').upsert(ch,{onConflict:'kanri_no',ignoreDuplicates:true});
+   const r=await sb.from('patients').upsert(ch,{onConflict:'store_id,kanri_no',ignoreDuplicates:true});
    if(!r.error){ok+=ch.length;continue}
-   for(const x of ch){const r2=await sb.from('patients').upsert(x,{onConflict:'kanri_no',ignoreDuplicates:true});if(r2.error)fail++;else ok++}}
+   for(const x of ch){const r2=await sb.from('patients').upsert(x,{onConflict:'store_id,kanri_no',ignoreDuplicates:true});if(r2.error)fail++;else ok++}}
   return {ok,fail}},
  async updatePatientName(id,name,kana){const {error}=await sb.from('patients').update({name,kana}).eq('id',id);if(error)throw error},
  async deleteStaff(id,i,force){const {error}=await sb.rpc('delete_store_staff',{p_store:id,p_index:i,p_force:!!force});if(error)throw error},
@@ -502,12 +502,12 @@ async function setMark(k,f,val){
 async function linkNew(p,num){
  if(!wr())return;
  if(!/^[0-9A-Za-z._-]+$/.test(num)){toast('管理番号は半角の英数字で入力してください');return}
- const ex=P.find(x=>x.c===num&&x.id!==p.id);
+ const ex=P.find(x=>x.c===num&&x.s===p.s&&x.id!==p.id);
  try{
   if(ex)await API.mergePatient(p.id,ex.id);else await API.setKanri(p.id,num);
   await loadPatients();rebuild(await API.appts(S.rf,S.rt));
- }catch(e){toast('管理番号の登録に失敗しました（すでに他の店舗で使われている可能性があります）');return}
- const now=P.find(x=>x.c===num);
+ }catch(e){toast('管理番号の登録に失敗しました。もう一度お試しください');return}
+ const now=P.find(x=>x.c===num&&x.s===p.s);
  S.pid=now?now.id:null;S.psig='';
  render();sugg();
  toast((now?now.n+'さん':'管理番号 '+num)+'に紐づけました');
@@ -750,7 +750,7 @@ $('csv').onchange=e=>{
   const a=ci('管理番号'),b=ci('氏名'),c=ci('フリガナ');
   if(a<0||b<0){toast('「管理番号」と「氏名」の列が見つかりません');e.target.value='';return}
   if(!wr()){e.target.value='';return}
-  const known={};P.forEach(p=>{if(p.c)known[p.c]=p});
+  const known={};P.forEach(p=>{if(p.c&&p.s===S.store)known[p.c]=p});
   const add=[],upd=[],seen={};
   rows.slice(1).forEach(r=>{
    const num=(r[a]||'').trim(),nm=(r[b]||'').trim();if(!num||!nm||seen[num])return;seen[num]=1;
