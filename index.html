@@ -35,15 +35,16 @@ button{cursor:pointer}
 #sug{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
 .panel{background:var(--sf);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:8px 0}
 .panel p{margin:4px 0 0;color:var(--mut);font-size:13px}
-.scroll{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--sf);max-height:70vh;overscroll-behavior:contain;position:sticky;top:var(--stkh,0px);z-index:10}
+.scroll{overflow-x:auto;overflow-y:hidden;border:1px solid var(--line);border-radius:10px;background:var(--sf)}
+#fh{position:fixed;z-index:25;overflow:hidden;display:none;pointer-events:none;background:var(--sf);box-shadow:0 4px 6px -4px rgba(0,0,0,.3)}
+#fh .tt{min-width:0;width:auto}
 .stk{position:sticky;top:0;z-index:30;background:var(--bg);padding:6px 0 4px;margin:0 0 4px;box-shadow:0 6px 8px -8px rgba(0,0,0,.35)}
 .stk #q{margin:0}.stk #sug{margin-top:6px}
 .tt{display:grid;min-width:max-content;width:100%}
-.hd{font-weight:700;text-align:center;padding:8px 4px;border-bottom:1px solid var(--line);background:var(--sf);position:sticky;top:0;z-index:3}
+.hd{font-weight:700;text-align:center;padding:8px 4px;border-bottom:1px solid var(--line);background:var(--sf)}
 .tt .hr{border-top:2px solid var(--ink)!important}
 .hd.td{background:var(--hi)}
-.hd.h2{top:var(--h1,36px)}
-.hd.cn{left:0;z-index:5}
+.hd.cn{position:sticky;left:0;z-index:5}
 .tm{position:sticky;left:0;z-index:2;background:var(--sf)}
 .tm{font-size:15px;font-weight:700;color:var(--ink);padding:6px 4px 0;border-top:1px solid var(--line);height:40px;box-sizing:border-box}
 .tt button,.cl{height:40px;box-sizing:border-box;border:0;border-top:1px solid var(--line);border-left:1px solid var(--line);margin:0;border-radius:0;font-size:14px}
@@ -342,14 +343,34 @@ function hourLines(){
   e.classList.toggle('hr',on&&!e.classList.contains('hd'));
  });
 }
-function fit(){
- const k=$('stk'),sc=document.querySelector('.scroll');if(!k||!sc)return;
- document.documentElement.style.setProperty('--stkh',(k.offsetHeight+2)+'px');
- sc.style.maxHeight=Math.max(260,innerHeight-k.offsetHeight-72)+'px';
- const f=$('tt').querySelector('.hd:not(.h2):not(.cn)');if(f)$('tt').style.setProperty('--h1',f.offsetHeight+'px');
+function fit(){fhBuild()}
+let FH=null;
+function fhBuild(){
+ let fh=$('fh');if(!fh){fh=document.createElement('div');fh.id='fh';document.body.appendChild(fh)}
+ const tt=$('tt'),sc=tt&&tt.closest('.scroll');
+ if(!tt||!sc||$('staffView').hidden){fh.style.display='none';FH=null;return}
+ const hds=[...tt.children].filter(e=>e.classList.contains('hd'));
+ if(!hds.length){fh.style.display='none';FH=null;return}
+ const g=document.createElement('div');g.className='tt';g.style.gridTemplateColumns=getComputedStyle(tt).gridTemplateColumns;g.style.width=tt.scrollWidth+'px';
+ hds.forEach(e=>{const c=e.cloneNode(true);c.removeAttribute('id');g.appendChild(c)});
+ fh.innerHTML='';fh.appendChild(g);
+ FH={fh,g,tt,sc,h:hds[hds.length-1].getBoundingClientRect().bottom-tt.getBoundingClientRect().top};
+ fhPos();
 }
-window.addEventListener('resize',fit);
-try{new ResizeObserver(fit).observe($('stk'))}catch(_){}
+function fhPos(){
+ if(!FH)return;
+ const {fh,g,tt,sc,h}=FH,k=$('stk');
+ const top=k?k.getBoundingClientRect().bottom:0,r=sc.getBoundingClientRect(),tr=tt.getBoundingClientRect();
+ if(tr.top<top&&tr.bottom>top+h+40){
+  fh.style.display='block';fh.style.top=top+'px';fh.style.left=(r.left+sc.clientLeft)+'px';fh.style.width=sc.clientWidth+'px';fh.style.height=h+'px';
+  const x=sc.scrollLeft;g.style.transform='translateX('+(-x)+'px)';
+  g.querySelectorAll('.cn').forEach(c=>{c.style.position='relative';c.style.transform='translateX('+x+'px)'});
+ }else fh.style.display='none';
+}
+window.addEventListener('scroll',fhPos,{passive:true});
+window.addEventListener('resize',fhBuild);
+document.addEventListener('scroll',e=>{if(e.target&&e.target.classList&&e.target.classList.contains('scroll'))fhPos()},{capture:true,passive:true});
+try{new ResizeObserver(fhPos).observe($('stk'))}catch(_){}
 function render(){
  if(!S.admin&&S.role==='admin')S.role='staff';
  luBuild();label();banner();
@@ -362,7 +383,7 @@ function render(){
  $('wsWrap').hidden=!(staff&&S.view==='week');
  $('wkall').hidden=!(staff&&S.one);
  $('tt').classList.toggle('sheet',S.view!=='week'||S.ws===-2);
- if(staff){patient();detail();S.view==='week'?weekTable():sheetTable();plRender();hourLines();fit()}else admin();
+ if(staff){patient();detail();S.view==='week'?weekTable():sheetTable();plRender();hourLines();fit()}else{admin();fhBuild()}
 }
 function wr(){if(S.canW)return true;toast('この画面は閲覧のみです');return false}
 function lastSlot(pid){let best=null;Object.keys(B).forEach(k=>{const b=B[k];if(b.cont||b.pid!==pid)return;if(!best||k>best)best=k});if(!best)return null;const p=keyParts(best);return {s:p.s==='q'?'q':+p.s,t:p.t}}
