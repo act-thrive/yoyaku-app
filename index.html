@@ -216,7 +216,7 @@ function patient(){
  $('patient').innerHTML=`<div class="panel"><div class="row"><strong>${esc(p.n)}さん</strong><span>通う店舗：${sname(p.s)}</span>
  <button class="btn p" id="again">1週間後の同じ枠で予約</button><button class="btn" id="clear">選択を解除</button></div>
  <div class="row" style="margin-top:8px">${MK.concat([['w','2枠（40分）']]).map(([f,l])=>`<label class="chk"><input type="checkbox" data-mk="${f}"${S.mk[f]?' checked':''}> ${l}</label>`).join('')}<span class="note" style="margin:0">この予約の目印</span></div>
- <div class="row" style="margin-top:8px"><label>通う店舗を変更 <select id="moveTo">${others}</select></label><button class="btn" id="move">変更する</button></div>
+ <div class="row" style="margin-top:8px"><label>通う店舗を変更 <select id="moveTo">${others}</select></label><button class="btn" id="move">変更する</button><button class="btn d" id="pdel" style="margin-left:auto">この患者さんを削除</button></div>
  ${p.nw?`<div class="row" style="margin-top:8px"><label>メープルの管理番号 <input id="lnum" class="fi" autocomplete="off" inputmode="numeric"></label><button class="btn" id="link">管理番号を登録</button></div><p>メープルの管理番号を登録すると、メープルの患者さんとして紐づきます（すでに同じ管理番号の方がいる場合は、予約もまとめられます）。</p>`:''}
  <p>下の表の空き枠をタップすると予約が入ります。店舗を変更しても、過去の予約は元の店舗に残ります。</p></div>`;
 }
@@ -383,6 +383,10 @@ const API={
  async setMarks(id,m){const {error}=await sb.from('appointments').update({marks:m}).eq('id',id);if(error)throw error},
  async addPatient(row){const {data,error}=await sb.from('patients').insert(row).select('id,kanri_no,name,kana,store_id').single();if(error)throw error;return data},
  async setKanri(id,num){const {error}=await sb.from('patients').update({kanri_no:num}).eq('id',id);if(error)throw error},
+ async patientAppts(id){const {data,error}=await sb.from('appointments').select('id,appt_date,status,store_id').eq('patient_id',id);if(error)throw error;return data||[]},
+ async deletePatient(id){
+  const a=await sb.from('appointments').delete().eq('patient_id',id);if(a.error)throw a.error;
+  const {error}=await sb.from('patients').delete().eq('id',id);if(error)throw error},
  async mergePatient(fromId,toId){
   const a=await sb.from('appointments').update({patient_id:toId}).eq('patient_id',fromId);if(a.error)throw a.error;
   const d=await sb.from('patients').delete().eq('id',fromId);if(d.error)throw d.error},
@@ -539,6 +543,21 @@ $('patient').onclick=async e=>{
  const id=e.target.id,p=P.find(x=>x.id===S.pid);
  if(!p)return;
  if(id==='clear'){S.pid=null;render();sugg()}
+ if(id==='pdel'){
+  if(!wr())return;
+  const label=p.n+'さん'+(p.c?'（No.'+p.c+'）':'');
+  if(!confirm(label+'を削除します。\n患者さんの情報が予約表から消えます。よろしいですか？'))return;
+  let ap;try{ap=await API.patientAppts(p.id)}catch(x){toast('削除できませんでした。もう一度お試しください');return}
+  if(ap.length){
+   const today=iso(new Date()),fut=ap.filter(a=>a.status==='confirmed'&&a.appt_date>=today).length;
+   if(!confirm(label+'には、予約の記録が'+ap.length+'件あります'+(fut?'（そのうち、これからの予約が'+fut+'件）':'')+'。\n削除すると、その予約も消えます。よろしいですか？'))return;
+  }else if(!confirm('本当に'+label+'を削除しますか？\n削除すると元に戻せません。'))return;
+  try{await API.deletePatient(p.id)}
+  catch(x){toast(ap&&!S.admin&&ap.some(a=>a.store_id!==S.store)?'ほかの店舗に予約が残っているため削除できません':'削除できませんでした。もう一度お試しください');return}
+  S.pid=null;S.sel=null;S.psig='';
+  try{await loadPatients();rebuild(await API.appts(S.rf,S.rt))}catch(x){}
+  render();sugg();plRender(true);toast(label+'を削除しました');
+  return}
  if(id==='again'){
   const ls=lastSlot(p.id);
   if(!ls){toast('この患者さんには前回の予約がまだありません');return}
