@@ -217,6 +217,7 @@ function patient(){
  <button class="btn p" id="again">1週間後の同じ枠で予約</button><button class="btn" id="clear">選択を解除</button></div>
  <div class="row" style="margin-top:8px">${MK.concat([['w','2枠（40分）']]).map(([f,l])=>`<label class="chk"><input type="checkbox" data-mk="${f}"${S.mk[f]?' checked':''}> ${l}</label>`).join('')}<span class="note" style="margin:0">この予約の目印</span></div>
  <div class="row" style="margin-top:8px"><label>通う店舗を変更 <select id="moveTo">${others}</select></label><button class="btn" id="move">変更する</button><button class="btn d" id="pdel" style="margin-left:auto">この患者さんを削除</button></div>
+ <details style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">名前・フリガナ・管理番号を直す</summary><div class="row" style="margin-top:6px"><label>氏名 <input id="en" class="fi" autocomplete="off" value="${esc(p.n)}"></label><label>フリガナ <input id="ek" class="fi" autocomplete="off" value="${esc(p.k||'')}"></label><label>管理番号 <input id="ec" class="fi" autocomplete="off" inputmode="numeric" style="width:7em" value="${esc(p.c||'')}"></label><button class="btn p" id="esave">保存する</button></div>${p.c?'<p>メープルの管理番号が登録されている方は、メープルのCSVを取り込むと、CSVの名前で上書きされます。管理番号を空にすると、番号のない患者さん（新規）に戻ります。</p>':''}</details>
  ${p.nw?`<div class="row" style="margin-top:8px"><label>メープルの管理番号 <input id="lnum" class="fi" autocomplete="off" inputmode="numeric"></label><button class="btn" id="link">管理番号を登録</button></div><p>メープルの管理番号を登録すると、メープルの患者さんとして紐づきます（すでに同じ管理番号の方がいる場合は、予約もまとめられます）。</p>`:''}
  <p>下の表の空き枠をタップすると予約が入ります。店舗を変更しても、過去の予約は元の店舗に残ります。</p></div>`;
 }
@@ -397,6 +398,7 @@ const API={
    if(!r.error){ok+=ch.length;continue}
    for(const x of ch){const r2=await sb.from('patients').upsert(x,{onConflict:'store_id,kanri_no',ignoreDuplicates:true});if(r2.error)fail++;else ok++}}
   return {ok,fail}},
+ async updatePatient(id,row){const {error}=await sb.from('patients').update(row).eq('id',id);if(error)throw error},
  async updatePatientName(id,name,kana){const {error}=await sb.from('patients').update({name,kana}).eq('id',id);if(error)throw error},
  async deleteStaff(id,i,force){const {error}=await sb.rpc('delete_store_staff',{p_store:id,p_index:i,p_force:!!force});if(error)throw error},
  async setStaff(id,staff,hidden){const {error}=await sb.rpc('set_store_staff',{p_store:id,p_staff:staff,p_hidden:hidden});if(error)throw error},
@@ -543,6 +545,23 @@ $('patient').onclick=async e=>{
  const id=e.target.id,p=P.find(x=>x.id===S.pid);
  if(!p)return;
  if(id==='clear'){S.pid=null;render();sugg()}
+ if(id==='esave'){
+  if(!wr())return;
+  const nm=$('en').value.trim(),kn=$('ek').value.trim(),num=$('ec').value.normalize('NFKC').trim();
+  if(!nm){toast('氏名を入力してください');return}
+  if(num&&!/^[0-9A-Za-z._-]+$/.test(num)){toast('管理番号は英数字で入力してください');return}
+  const numCh=num!==(p.c||'');
+  if(nm===p.n&&kn===(p.k||'')&&!numCh){toast('変更はありません');return}
+  if(numCh&&num){
+   const ex=P.find(x=>x.c===num&&x.s===p.s&&x.id!==p.id);
+   if(ex){toast('管理番号 '+num+' は、すでに '+ex.n+'さんに使われています');return}
+  }
+  if(numCh&&!confirm(p.n+'さんの管理番号を「'+(p.c||'なし')+'」から「'+(num||'なし')+'」に変更します。よろしいですか？'))return;
+  const row={name:nm,kana:kn};if(numCh)row.kanri_no=num||null;
+  try{await API.updatePatient(p.id,row)}catch(x){toast(x&&x.code==='23505'?'その管理番号は、すでにほかの患者さんに使われています':'保存できませんでした。もう一度お試しください');return}
+  try{await loadPatients()}catch(x){p.n=nm;p.k=kn;if(numCh)p.c=num||null}
+  S.psig='';render();sugg();plRender(true);toast(nm+'さんの情報を保存しました');
+  return}
  if(id==='pdel'){
   if(!wr())return;
   const label=p.n+'さん'+(p.c?'（No.'+p.c+'）':'');
