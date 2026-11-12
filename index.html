@@ -118,7 +118,7 @@ button{cursor:pointer}
 <p id="lerr" role="alert"></p><button class="btn p" type="submit" id="lgo">ログイン</button></form></section>
 <main id="app" hidden>
 <div class="top"><h1>予約表</h1>
-<div class="row"><button class="btn" id="logout">ログアウト</button><div class="seg" id="roleSeg"><button data-role="staff" aria-pressed="true">受付</button><button data-role="admin" aria-pressed="false">管理者</button></div></div></div>
+<div class="row"><button class="btn" id="refresh" title="最新の予約と画面を読み込み直します">⟳ 更新</button><button class="btn" id="logout">ログアウト</button><div class="seg" id="roleSeg"><button data-role="staff" aria-pressed="true">受付</button><button data-role="admin" aria-pressed="false">管理者</button></div></div></div>
 <p class="note" id="mode">共有の保存先に接続しています…</p>
 <div class="bar">
 <label id="storeWrap">店舗 <select id="myStore"></select></label>
@@ -868,6 +868,7 @@ $('lform').onsubmit=async e=>{
  try{const u=await API.login($('le').value.trim(),$('lp').value);$('lp').value='';await boot(u)}
  catch(x){showLogin('メールアドレスかパスワードが違います')}
 };
+$('refresh').onclick=()=>{const b=$('refresh');b.disabled=true;b.textContent='更新中…';location.replace(location.pathname+'?r='+Date.now()+location.hash)};
 $('logout').onclick=async()=>{try{await API.logout()}catch(e){}location.reload()};
 async function boot(user){
  ME=user;S.mode='loading';
