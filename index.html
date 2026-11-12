@@ -39,7 +39,18 @@ button{cursor:pointer}
 #fh{position:fixed;z-index:25;overflow:hidden;display:none;pointer-events:none;background:var(--sf);box-shadow:0 4px 6px -4px rgba(0,0,0,.3)}
 #fh .tt{min-width:0;width:auto}
 .stk{position:sticky;top:0;z-index:30;background:var(--bg);padding:6px 0 4px;margin:0 0 4px;box-shadow:0 6px 8px -8px rgba(0,0,0,.35)}
-.stk #q{margin:0}.stk #sug{margin-top:6px}
+.stk #q{margin:0;box-sizing:border-box;max-width:100%}.stk #sug{margin-top:6px}
+.stk.nostk{position:static;box-shadow:none}
+#psel:empty{display:none}
+#psel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;padding:6px 10px;border-radius:10px;background:var(--hi)}
+#psel .btn{padding:4px 12px}
+@media (max-width:700px){
+ #actrow{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+ #actrow .btn{white-space:nowrap;padding:6px 10px!important;font-size:13px;line-height:1.3;min-height:0;flex:0 0 auto}
+ .stk #q{padding:10px 12px}
+ #psel{font-size:14px;padding:4px 8px}
+ #psel .note{display:none}
+}
 .tt{display:grid;min-width:max-content;width:100%}
 .hd{font-weight:700;text-align:center;padding:8px 4px;border-bottom:1px solid var(--line);background:var(--sf)}
 .tt .hr{border-top:2px solid var(--ink)!important}
@@ -118,10 +129,11 @@ button{cursor:pointer}
 <section id="staffView">
 <div class="stk" id="stk">
 <input id="q" placeholder="名前・ひらがな・フリガナ・管理番号で探す" autocomplete="off" aria-label="患者さんを探す">
+<div class="row" id="actrow" style="margin:6px 0 0"><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">患者データを取り込む（CSV）<input id="csv" type="file" accept=".csv,text/csv" hidden></label><button class="btn" id="newbtn">＋ 新規の患者さんを登録</button><button class="btn" id="plbtn">患者一覧</button><button class="btn" id="stbtn">スタッフの追加・削除</button><button class="btn" id="absbtn">スタッフの欠勤を設定</button></div>
 <div id="sug"></div>
-<div id="patient"></div>
+<div id="psel"></div>
 </div>
-<div class="row" style="margin:6px 0"><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">患者データを取り込む（CSV）<input id="csv" type="file" accept=".csv,text/csv" hidden></label><button class="btn" id="newbtn">＋ 新規の患者さんを登録</button><button class="btn" id="plbtn">患者一覧</button><button class="btn" id="stbtn">スタッフの追加・削除</button><button class="btn" id="absbtn">スタッフの欠勤を設定</button></div>
+<div id="patient"></div>
 <p class="note" style="margin:0 0 6px">メープルのCSVを読み込むと、この店舗の患者さんとして保存されます。すでにいる方は飛ばされ、新しい方だけが追加されます。（名前などが変わっていれば更新されます）</p>
 <div id="nform" class="panel" hidden>
 <div class="row"><label>氏名 <input id="nn" class="fi" autocomplete="off"></label><label>フリガナ <input id="nk" class="fi" autocomplete="off"></label><button class="btn p" id="nsave">登録して選ぶ</button><button class="btn" id="ncancel">閉じる</button></div>
@@ -196,6 +208,7 @@ const kh=s=>String(s).normalize('NFKC').replace(/[ァ-ヶ]/g,c=>String.fromCharC
 const z0=s=>String(s).replace(/^0+(?=\d)/,'');
 function sugg(){
  const q=kh(S.q),qn=/^\d+$/.test(q)?z0(q):null;
+ if(!q){$('sug').innerHTML='';return}
  const score=p=>{
   if(!q)return 5;
   const c=p.c?kh(p.c):'';
@@ -212,6 +225,7 @@ function patient(){
  const p=P.find(x=>x.id===S.pid);
  const sig=[S.pid,p&&p.s,p&&p.nw,S.mk.j,S.mk.k,S.mk.h,S.mk.r,S.mk.n,S.mk.w,S.canW].join('|');
  if(sig===S.psig)return;S.psig=sig;
+ $('psel').innerHTML=p?'<span>選択中：<strong>'+esc(p.n)+'</strong>さん'+(p.c?' <small>No.'+esc(p.c)+'</small>':'')+(p.nw?'（新規）':'')+'</span><span class="note" style="margin:0">空き枠を押すと予約が入ります</span><button class="btn" id="pselclr" style="margin-left:auto">選択を解除</button>':'';
  if(!p){$('patient').innerHTML='';return}
  const others=STORES.filter(s=>s.id!==p.s).map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
  $('patient').innerHTML=`<div class="panel"><div class="row"><strong>${esc(p.n)}さん</strong><span>通う店舗：${sname(p.s)}</span>
@@ -343,7 +357,10 @@ function hourLines(){
   e.classList.toggle('hr',on&&!e.classList.contains('hd'));
  });
 }
-function fit(){fhBuild()}
+function fit(){
+ const k=$('stk');
+ if(k){k.classList.remove('nostk');if(k.offsetHeight>innerHeight*0.5)k.classList.add('nostk')}
+ fhBuild()}
 let FH=null;
 function fhBuild(){
  let fh=$('fh');if(!fh){fh=document.createElement('div');fh.id='fh';document.body.appendChild(fh)}
@@ -360,7 +377,7 @@ function fhBuild(){
 function fhPos(){
  if(!FH)return;
  const {fh,g,tt,sc,h}=FH,k=$('stk');
- const top=k?k.getBoundingClientRect().bottom:0,r=sc.getBoundingClientRect(),tr=tt.getBoundingClientRect();
+ const top=k?Math.max(0,k.getBoundingClientRect().bottom):0,r=sc.getBoundingClientRect(),tr=tt.getBoundingClientRect();
  if(tr.top<top&&tr.bottom>top+h+40){
   fh.style.display='block';fh.style.top=top+'px';fh.style.left=(r.left+sc.clientLeft)+'px';fh.style.width=sc.clientWidth+'px';fh.style.height=h+'px';
   const x=sc.scrollLeft;g.style.transform='translateX('+(-x)+'px)';
@@ -368,9 +385,9 @@ function fhPos(){
  }else fh.style.display='none';
 }
 window.addEventListener('scroll',fhPos,{passive:true});
-window.addEventListener('resize',fhBuild);
+window.addEventListener('resize',fit);
 document.addEventListener('scroll',e=>{if(e.target&&e.target.classList&&e.target.classList.contains('scroll'))fhPos()},{capture:true,passive:true});
-try{new ResizeObserver(fhPos).observe($('stk'))}catch(_){}
+try{new ResizeObserver(()=>{const k=$('stk');if(k&&!k.classList.contains('nostk')&&k.offsetHeight>innerHeight*0.5)fit();else fhPos()}).observe($('stk'))}catch(_){}
 function render(){
  if(!S.admin&&S.role==='admin')S.role='staff';
  luBuild();label();banner();
@@ -881,6 +898,17 @@ async function init(){
  if(u)boot(u);else showLogin('');
 }
 init();
+
+[['newbtn','nform'],['plbtn','plist'],['stbtn','stform'],['absbtn','absform']].forEach(([b,pn])=>{
+ const el=$(b);if(!el)return;
+ el.addEventListener('click',()=>setTimeout(()=>{
+  const p=$(pn);if(!p||p.hidden)return;
+  const k=$('stk'),top=p.getBoundingClientRect().top-(k?k.getBoundingClientRect().bottom:0)-8;
+  if(top<0||top>innerHeight*0.5)window.scrollBy({top,behavior:'smooth'});
+ },30));
+});
+
+$('psel').onclick=e=>{if(e.target.id==='pselclr'){S.pid=null;S.psig='';render();sugg()}};
 </script>
 </body>
 </html>
