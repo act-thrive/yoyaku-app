@@ -71,7 +71,8 @@ details .inner{padding:0 12px 12px}
 .storechecks label{font-size:13px;display:flex;align-items:center;gap:3px;white-space:nowrap}
 .opt{display:flex;gap:4px;align-items:center;margin-top:6px;font-size:13px;flex-wrap:wrap}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .3s;z-index:10;max-width:90vw}
-.toast.show{opacity:1}
+.toast.show{opacity:1;pointer-events:auto}
+.toast button{margin-left:10px;background:#fff;color:var(--navy);border:none;padding:3px 10px;font-size:13px}
 textarea{width:100%;min-height:160px;font:inherit;font-size:13px;padding:8px;border:1px solid #c5ced8;border-radius:6px}
 .login{max-width:360px;margin:60px auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:24px}
 .login h2{text-align:center}
@@ -102,10 +103,10 @@ const STORE_IDS=["s1","s2","s3","s4"];
 const DEFAULT_NAMES={s1:"阪急茨木院",s2:"朝潮橋院",s3:"河内山本院",s4:"JR茨木院"};
 const CATS=["事務","施術","その他"];
 let sb=null;
-const S={user:null,admin:false,myStore:null,storeNames:{},cfg:{},items:[],stock:{},checks:[],orders:[],moves:[],loaded:false,err:null,filter:{},busy:false};
+const S={user:null,admin:false,myStore:null,storeNames:{},cfg:{},items:[],stock:{},checks:[],orders:[],moves:[],usage:[],usageReady:false,loaded:false,err:null,filter:{},busy:false};
 const $=s=>document.querySelector(s);
 const esc=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove("show"),2600);}
+function toast(m,act){const t=$("#toast");t.innerHTML=esc(m)+(act||"");t.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove("show"),act?7000:2600);}
 const isNum=v=>typeof v==="number"&&isFinite(v);
 const num=v=>v==null||v===""?null:Number(v);
 
@@ -181,18 +182,21 @@ async function loadStock(){const m={};for(const r of await q(sb.from("inv_stock"
 async function loadChecks(){S.checks=await q(sb.from("inv_checks").select("*").order("at",{ascending:false}).limit(200));}
 async function loadOrders(){S.orders=await q(sb.from("inv_orders").select("*").order("at",{ascending:false}).limit(200));}
 async function loadMoves(){S.moves=await q(sb.from("inv_moves").select("*").order("at",{ascending:false}).limit(500));}
+async function loadUsage(){try{S.usage=await q(sb.from("inv_usage").select("*").gte("at",new Date(Date.now()-30*864e5).toISOString()).order("at",{ascending:false}).limit(5000));S.usageReady=true;}catch(e){S.usageReady=false;}}
+function usage30(sid,iid){let n=0;for(const u of S.usage)if(u.store_id===sid&&u.item_id===iid)n+=num(u.qty)||0;return n;}
 const LOADERS={inv_items:loadItems,inv_store_settings:loadCfg,inv_stock:loadStock,inv_checks:loadChecks,inv_orders:loadOrders,inv_moves:loadMoves};
-async function loadAll(){await Promise.all([loadStores()].concat(Object.values(LOADERS).map(f=>f())));}
+async function loadAll(){await Promise.all([loadStores(),loadUsage()].concat(Object.values(LOADERS).map(f=>f())));}
 const pendingReload=new Set();let reloadTimer=null;
 function queueReload(t){pendingReload.add(t);clearTimeout(reloadTimer);reloadTimer=setTimeout(async()=>{const ts=[...pendingReload];pendingReload.clear();try{await Promise.all(ts.map(x=>LOADERS[x]()));}catch(e){}scheduleRender();},250);}
 function subscribe(){
   const ch=sb.channel("inv-all");
   for(const t of Object.keys(LOADERS))ch.on("postgres_changes",{event:"*",schema:"public",table:t},()=>queueReload(t));
   ch.subscribe();
+  sb.channel("inv-usage").on("postgres_changes",{event:"*",schema:"public",table:"inv_usage"},()=>{clearTimeout(S._ut);S._ut=setTimeout(async()=>{await loadUsage();scheduleRender();},300);}).subscribe();
   // 画面に戻ってきたときにも最新にする
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){Object.keys(LOADERS).forEach(queueReload);}});
 }
-function errText(e){const m=(e&&(e.message||e.error_description))||String(e);if(/row-level security|permission/i.test(m))return "この操作をする権限がありません";return m;}
+function errText(e){const m=(e&&(e.message||e.error_description))||String(e);if(/Could not find the function|schema cache/i.test(m))return "データベースの更新（zaiko-patch1.sql）がまだ済んでいません";if(/row-level security|permission/i.test(m))return "この操作をする権限がありません";return m;}
 
 /* ---------- 書き込み ---------- */
 async function saveStock(sid,iid,patch){
@@ -275,21 +279,21 @@ function viewStore(sid){
   const notes=[];if(extraPct(sid))notes.push('在庫を<b>＋'+extraPct(sid)+'%</b>多めに持つ設定です');if(noDirect(sid))notes.push('発注品は'+esc(storeName(orderVia(sid)))+'に届き、そこから移動します');
   if(notes.length)h+='<div class="banner warn" style="margin:8px 0 0">この店舗は、'+notes.join('。')+'。</div>';
   h+='<div class="filters">'+[["all","すべて"],["need","要補充"],["blank","未入力"]].map(([k,l])=>'<button data-act="filt" data-view="'+sid+'" data-f="'+k+'" class="'+(f===k?"on":"")+'">'+l+'</button>').join("")+'</div>';
-  h+='<div class="tablewrap"><table><thead><tr><th>備品名</th><th class="num">在庫数</th><th class="num">発注点</th><th class="num">適正在庫</th><th class="num">判定</th><th class="hide-sm">メモ</th><th class="hide-sm num">更新</th></tr></thead><tbody>';
+  h+='<div class="tablewrap"><table><thead><tr><th>備品名</th><th class="num">在庫数</th><th class="num">発注点</th><th class="num">適正在庫</th><th class="num">判定</th><th class="num hide-sm">30日の使用</th><th class="hide-sm">メモ</th><th class="hide-sm num">更新</th></tr></thead><tbody>';
   let cat=null,rows=0;
   for(const it of items){
     const st=status(sid,it.id);
     if(f==="need"&&st!=="need")continue;if(f==="blank"&&st!=="blank")continue;
-    if(it.category!==cat){cat=it.category;h+='<tr class="cat"><td colspan="7">'+esc(cat)+'</td></tr>';}
+    if(it.category!==cat){cat=it.category;h+='<tr class="cat"><td colspan="8">'+esc(cat)+'</td></tr>';}
     const s=stk(sid,it.id);
     const inp=fd=>'<input type="number" inputmode="numeric" min="0" step="1" data-act="stock" data-sid="'+sid+'" data-iid="'+esc(it.id)+'" data-field="'+fd+'" data-fk="'+sid+it.id+fd+'" value="'+(isNum(s[fd])?s[fd]:"")+'" class="'+(fd==="qty"&&!isNum(s.qty)?"empty":"")+'"'+dis+'>';
     const coming=onOrder(sid,it.id)+resIn(sid,it.id);
-    h+='<tr class="'+(st==="need"?"need":"")+'"><td>'+esc(it.name)+'</td><td class="num">'+inp("qty")+'</td><td class="num">'+inp("reorder_point")+'</td><td class="num">'+inp("target")+'</td><td class="num">'+pill(st)+(coming?'<div class="note">届く予定 '+coming+'</div>':'')+'</td>'+
-      '<td class="hide-sm"><input type="text" style="width:150px" data-act="stock" data-sid="'+sid+'" data-iid="'+esc(it.id)+'" data-field="memo" data-fk="'+sid+it.id+'memo" value="'+esc(s.memo||"")+'"'+dis+'></td><td class="hide-sm num note">'+esc(fmtDate(s.updated_at))+'</td></tr>';
+    h+='<tr class="'+(st==="need"?"need":"")+'"><td>'+esc(it.name)+'</td><td class="num">'+inp("qty")+(canEditStore(sid)&&isNum(s.qty)&&s.qty>0?'<div class="usebox" style="margin-top:4px"><button class="small" data-act="use" data-sid="'+sid+'" data-iid="'+esc(it.id)+'">使った</button></div>':'')+'</td><td class="num">'+inp("reorder_point")+'</td><td class="num">'+inp("target")+'</td><td class="num">'+pill(st)+(coming?'<div class="note">届く予定 '+coming+'</div>':'')+'</td>'+
+      '<td class="num hide-sm note">'+(S.usageReady?usage30(sid,it.id):'')+'</td><td class="hide-sm"><input type="text" style="width:150px" data-act="stock" data-sid="'+sid+'" data-iid="'+esc(it.id)+'" data-field="memo" data-fk="'+sid+it.id+'memo" value="'+esc(s.memo||"")+'"'+dis+'></td><td class="hide-sm num note">'+esc(fmtDate(s.updated_at))+'</td></tr>';
     rows++;
   }
-  if(!rows)h+='<tr><td colspan="7" class="muted">該当する品目はありません。</td></tr>';
-  h+='</tbody></table></div><p class="note">入力欄から離れると自動で保存されます。発注点＝この数以下になったら補充する数、適正在庫＝補充するときにこの数まで戻す数です（空欄なら発注点の2倍で計算）。</p></div>';
+  if(!rows)h+='<tr><td colspan="8" class="muted">該当する品目はありません。</td></tr>';
+  h+='</tbody></table></div><p class="note">入力欄から離れると自動で保存されます。品物を使ったときは在庫数の下の「使った」を押すと、その数だけ在庫が減り、使用数として記録されます。発注点＝この数以下になったら補充する数、適正在庫＝補充するときにこの数まで戻す数です（空欄なら発注点の2倍で計算）。</p></div>';
   if(canEditStore(sid))h+='<div class="card"><h3>今回の確認を履歴に残す</h3><p class="muted" style="margin-top:0">在庫を数え終えたら、担当者名を入れて保存してください。</p><div class="row"><input type="text" id="staff" placeholder="担当者名" data-fk="staff'+sid+'" style="width:180px"><button class="primary" data-act="savecheck" data-sid="'+sid+'">確認を保存</button></div></div>';
   return h;
 }
@@ -426,6 +430,9 @@ document.addEventListener("click",async e=>{
   if(act==="copyorder"){const o=S.orders.find(x=>x.id===b.dataset.id);if(o)await copyText(orderText(o));return;}
   // 2回押しで実行するもの
   if(["canceltrip","cancelorder","delitem","delcheck"].includes(act)&&!b.dataset.sure){b.dataset.sure="1";b.dataset.label=b.textContent;b.textContent="もう一度押すと実行";setTimeout(()=>{if(b.isConnected){delete b.dataset.sure;b.textContent=b.dataset.label;}},4000);return;}
+  if(act==="use"){const box=b.closest(".usebox");box.innerHTML='<input type="number" min="1" step="1" value="1" class="usen" style="width:52px"> <button class="small primary" data-act="use2" data-sid="'+esc(b.dataset.sid)+'" data-iid="'+esc(b.dataset.iid)+'">記録</button>';const n=box.querySelector(".usen");n.focus();n.select();return;}
+  if(act==="use2")return guarded(b,async()=>{const n=Number(b.closest(".usebox").querySelector(".usen").value);if(!isFinite(n)||n<=0){toast("使った数を入れてください");b.disabled=false;return;}const sid=b.dataset.sid,iid=b.dataset.iid;const id=await rpc("inv_use_item",{p_store:sid,p_item:iid,p_qty:n});await Promise.all([loadStock(),loadUsage()]);const it=S.items.find(i=>i.id===iid);render();toast((it?it.name:"")+"："+n+"使用（残り"+stk(sid,iid).qty+"）",id?'<button data-act="undouse" data-id="'+esc(id)+'">取り消す</button>':'');});
+  if(act==="undouse")return guarded(b,async()=>{await rpc("inv_undo_use",{p_usage:b.dataset.id});await Promise.all([loadStock(),loadUsage()]);$("#toast").classList.remove("show");render();toast("取り消しました");});
   if(act==="confirmplan")return guarded(b,async()=>{
     const P=computePlan();
     const moves=P.moves.map(m=>({item_id:m.it.id,name:m.it.name,from:m.from,to:m.to,qty:m.qty}));
