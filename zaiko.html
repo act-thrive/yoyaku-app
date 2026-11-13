@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-title" content="在庫管理">
+<title>備品 在庫管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.56.0/dist/umd/supabase.min.js"></script>
+<style>
+:root{--navy:#1a3550;--navy2:#264a6e;--bg:#f4f6f9;--card:#fff;--line:#dde3ea;--text:#1d2733;--muted:#6b7785;--red:#c62828;--redbg:#fdecec;--green:#2e7d32;--greenbg:#e9f5ea;--yellow:#fff8dc;--blue:#e8f0f8}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Noto Sans JP",system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:15px}
+header{background:var(--navy);color:#fff;padding:12px 18px 0}
+.top{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.top h1{margin:0;font-size:18px;font-weight:700;letter-spacing:.04em}
+.top .who{margin-left:auto;font-size:13px;color:#c8d6e5;display:flex;gap:10px;align-items:center}
+.top a,.top button.link{color:#fff;font-size:13px;background:none;border:1px solid #6d88a6;border-radius:6px;padding:4px 10px;text-decoration:none;cursor:pointer}
+nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav a{color:#c8d6e5;text-decoration:none;padding:9px 14px;border-radius:8px 8px 0 0;white-space:nowrap;font-size:14px;font-weight:500}
+nav a.on{background:var(--bg);color:var(--navy)}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.banner{padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:14px}
+.banner.warn{background:var(--yellow);border:1px solid #ecd98a}
+.banner.err{background:var(--redbg);border:1px solid #f1b5b5;color:var(--red)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+h2{font-size:17px;margin:4px 0 12px}
+h3{font-size:15px;margin:0 0 8px}
+.muted{color:var(--muted);font-size:13px}
+.note{font-size:12px;color:var(--muted)}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px}
+.storecard{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;text-decoration:none;color:inherit;display:block}
+.storecard:hover{border-color:var(--navy2)}
+.storecard .name{font-weight:700;font-size:16px;margin-bottom:8px}
+.storecard .nums{display:flex;gap:14px}
+.big{font-size:26px;font-weight:700;line-height:1}
+.big.red{color:var(--red)}
+.lbl{font-size:12px;color:var(--muted)}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;background:#fff}
+th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:middle}
+th{background:var(--blue);font-size:13px;font-weight:700;color:var(--navy);white-space:nowrap}
+td.num,th.num{text-align:center}
+tr.cat td{background:#f0f3f7;font-weight:700;font-size:13px;color:var(--navy2)}
+tr.need td{background:var(--redbg)}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.pill.need{background:var(--red);color:#fff}
+.pill.ok{background:var(--greenbg);color:var(--green)}
+.pill.none{background:#eef1f4;color:var(--muted)}
+input[type=number],input[type=text],input[type=email],input[type=password],select{font:inherit;padding:6px 8px;border:1px solid #c5ced8;border-radius:6px;background:#fff;color:var(--text)}
+input[type=number]{width:72px;text-align:right}
+input.empty{background:var(--yellow)}
+input:disabled,select:disabled{background:#f2f2f2;color:#888}
+button{font:inherit;font-size:14px;padding:7px 14px;border-radius:7px;border:1px solid var(--navy2);background:#fff;color:var(--navy2);cursor:pointer;font-weight:500}
+button.primary{background:var(--navy2);color:#fff}
+button.danger{border-color:var(--red);color:var(--red)}
+button.small{padding:3px 9px;font-size:12px}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 10px}
+.filters button{border-radius:999px;padding:5px 12px;font-size:13px}
+.filters button.on{background:var(--navy2);color:#fff}
+.cell-q{font-weight:700}.cell-q.need{color:var(--red)}.cell-q.ok{color:var(--green)}.cell-q.na{color:#b8c0c9;font-weight:400}
+details{border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:#fff}
+details summary{padding:10px 12px;cursor:pointer;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+details .inner{padding:0 12px 12px}
+.storechecks{display:flex;gap:10px;flex-wrap:wrap}
+.storechecks label{font-size:13px;display:flex;align-items:center;gap:3px;white-space:nowrap}
+.opt{display:flex;gap:4px;align-items:center;margin-top:6px;font-size:13px;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .3s;z-index:10;max-width:90vw}
+.toast.show{opacity:1}
+textarea{width:100%;min-height:160px;font:inherit;font-size:13px;padding:8px;border:1px solid #c5ced8;border-radius:6px}
+.login{max-width:360px;margin:60px auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:24px}
+.login h2{text-align:center}
+.login label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+.login input{width:100%}
+.login button{width:100%;margin-top:18px;padding:10px}
+@media (max-width:600px){main{padding:10px}th,td{padding:6px 5px}input[type=number]{width:58px}.hide-sm{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="top"><h1>備品 在庫管理</h1><div class="who" id="who"></div></div>
+  <nav id="nav"></nav>
+</header>
+<main>
+  <div id="banners"></div>
+  <div id="view"><p class="muted">読み込み中…</p></div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+/* 予約表（index.html）と同じ接続先。ログインも共通です。 */
+const SB_URL='https://gxpnfftlixwyhxafcgdy.supabase.co',SB_KEY='sb_publishable_oOpjTBMdzfZHtumjOdpuIg_w-3uLdep';
+const YOYAKU_URL='./';
+const STORE_IDS=["s1","s2","s3","s4"];
+const DEFAULT_NAMES={s1:"阪急茨木院",s2:"朝潮橋院",s3:"河内山本院",s4:"JR茨木院"};
+const CATS=["事務","施術","その他"];
+let sb=null;
+const S={user:null,admin:false,myStore:null,storeNames:{},cfg:{},items:[],stock:{},checks:[],orders:[],moves:[],loaded:false,err:null,filter:{},busy:false};
+const $=s=>document.querySelector(s);
+const esc=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove("show"),2600);}
+const isNum=v=>typeof v==="number"&&isFinite(v);
+const num=v=>v==null||v===""?null:Number(v);
+
+/* ---------- 基本 ---------- */
+function storeName(id){return S.storeNames[id]||DEFAULT_NAMES[id]||id;}
+function cfg(id){return S.cfg[id]||{};}
+function canTransfer(id){return cfg(id).transfer!==false;}
+function extraPct(id){const v=num(cfg(id).extra_pct);return isNum(v)&&v>0?v:0;}
+function noDirect(id){return cfg(id).no_direct===true;}
+function orderVia(id){const v=cfg(id).order_via;return STORE_IDS.includes(v)&&v!==id&&!noDirect(v)?v:STORE_IDS.find(x=>x!==id&&!noDirect(x));}
+function adj(sid,n){const e=extraPct(sid);return e?Math.ceil(n*(1+e/100)):n;}
+function activeItems(){return S.items.filter(i=>!i.deleted).sort((a,b)=>(a.sort||0)-(b.sort||0));}
+function usedIn(it,sid){return Array.isArray(it.stores)?it.stores.includes(sid):true;}
+function itemsFor(sid){return activeItems().filter(i=>usedIn(i,sid));}
+function key(sid,iid){return sid+"__"+iid;}
+function stk(sid,iid){return S.stock[key(sid,iid)]||{};}
+function rpOf(sid,s){return adj(sid,s.reorder_point);}
+function targetOf(sid,s){const base=isNum(s.target)?s.target:Math.max(s.reorder_point*2,s.reorder_point+1);return adj(sid,base);}
+function status(sid,iid){const s=stk(sid,iid);if(!isNum(s.qty))return "blank";if(!isNum(s.reorder_point))return "nopoint";return s.qty<=rpOf(sid,s)?"need":"ok";}
+function pill(st){return st==="need"?'<span class="pill need">要補充</span>':st==="ok"?'<span class="pill ok">OK</span>':st==="nopoint"?'<span class="pill none">発注点なし</span>':'<span class="pill none">未入力</span>';}
+function fmtDate(iso){if(!iso)return "";const d=new Date(iso);if(isNaN(d))return "";return (d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
+function fmtFull(iso){const d=new Date(iso);if(isNaN(d))return "";return d.getFullYear()+"/"+(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
+function today(){const d=new Date();return d.getFullYear()+"/"+(d.getMonth()+1)+"/"+d.getDate();}
+function storeSummary(sid){let need=0,blank=0,total=0;for(const it of itemsFor(sid)){total++;const st=status(sid,it.id);if(st==="need")need++;else if(st==="blank")blank++;}return {need,blank,total};}
+function canEditStore(sid){return S.admin||S.myStore===sid;}
+
+/* ---------- 計画（移動 → 足りない分だけ発注） ---------- */
+function onOrder(sid,iid){let n=0;for(const o of S.orders){if(o.status!=="ordered"||!Array.isArray(o.lines))continue;for(const l of o.lines){if(l.item_id!==iid)continue;const v=l.alloc&&num(l.alloc[sid]);if(isNum(v))n+=v;}}return n;}
+function plannedMoves(){return S.moves.filter(m=>m.status==="planned");}
+function resOut(sid,iid){let n=0;for(const m of plannedMoves())if(m.from_store===sid&&m.item_id===iid)n+=num(m.qty)||0;return n;}
+function resIn(sid,iid){let n=0;for(const m of plannedMoves())if(m.to_store===sid&&m.item_id===iid)n+=num(m.qty)||0;return n;}
+function computePlan(){
+  const moves=[],orders=[],incomplete={};
+  for(const it of activeItems()){
+    const needs=[],donors=[];
+    for(const sid of STORE_IDS.filter(x=>usedIn(it,x))){
+      const s=stk(sid,it.id);
+      if(!isNum(s.qty)||!isNum(s.reorder_point)){(incomplete[sid]=incomplete[sid]||[]).push(it.name);continue;}
+      const tgt=targetOf(sid,s),avail=s.qty-resOut(sid,it.id),eff=avail+onOrder(sid,it.id)+resIn(sid,it.id);
+      if(eff<=rpOf(sid,s)){const sh=Math.ceil(tgt-eff);if(sh>0)needs.push({sid,sh,qty:eff,tr:canTransfer(sid)});}
+      else if(avail>tgt&&canTransfer(sid)){const sur=Math.floor(avail-tgt);if(sur>0)donors.push({sid,sur,qty:avail});}
+    }
+    if(!needs.length)continue;
+    needs.sort((a,b)=>b.sh-a.sh);donors.sort((a,b)=>b.sur-a.sur);
+    const per={},via={},alloc={},dest={};let total=0;
+    for(const n of needs){
+      for(const d of donors){
+        if(n.sh<=0||!n.tr)break;if(d.sur<=0)continue;
+        const m=Math.min(n.sh,d.sur);
+        moves.push({it,from:d.sid,to:n.sid,qty:m,fromQty:d.qty,toQty:n.qty});
+        d.qty-=m;n.qty+=m;n.sh-=m;d.sur-=m;
+      }
+      if(n.sh>0){
+        const to=noDirect(n.sid)?orderVia(n.sid):n.sid;
+        alloc[n.sid]=n.sh;dest[n.sid]=to;
+        if(to!==n.sid)(via[to]=via[to]||{})[n.sid]=n.sh;
+        per[to]=(per[to]||0)+n.sh;total+=n.sh;
+      }
+    }
+    if(total>0)orders.push({it,per,via,alloc,dest,total});
+  }
+  return {moves,orders,incomplete};
+}
+function trips(list,fromKey,toKey){const m=new Map();for(const x of list){const f=x[fromKey],t=x[toKey];const k=f+">"+t;if(!m.has(k))m.set(k,{from:f,to:t,list:[]});m.get(k).list.push(x);}return [...m.values()];}
+function planCount(){try{const p=computePlan();return trips(p.moves,"from","to").length+p.orders.length;}catch(e){return 0;}}
+
+/* ---------- データ読み込み ---------- */
+async function q(p){const {data,error}=await p;if(error)throw error;return data;}
+async function loadStores(){try{const d=await q(sb.from("stores").select("*").order("id"));for(const r of d||[]){if(r&&r.id&&r.name)S.storeNames[r.id]=r.name;}}catch(e){}}
+async function loadItems(){S.items=(await q(sb.from("inv_items").select("*"))).map(r=>Object.assign(r,{sort:num(r.sort)}));}
+async function loadCfg(){S.cfg={};for(const r of await q(sb.from("inv_store_settings").select("*")))S.cfg[r.store_id]=r;}
+async function loadStock(){const m={};for(const r of await q(sb.from("inv_stock").select("*"))){m[key(r.store_id,r.item_id)]={qty:num(r.qty),reorder_point:num(r.reorder_point),target:num(r.target),memo:r.memo,updated_at:r.updated_at};}S.stock=m;}
+async function loadChecks(){S.checks=await q(sb.from("inv_checks").select("*").order("at",{ascending:false}).limit(200));}
+async function loadOrders(){S.orders=await q(sb.from("inv_orders").select("*").order("at",{ascending:false}).limit(200));}
+async function loadMoves(){S.moves=await q(sb.from("inv_moves").select("*").order("at",{ascending:false}).limit(500));}
+const LOADERS={inv_items:loadItems,inv_store_settings:loadCfg,inv_stock:loadStock,inv_checks:loadChecks,inv_orders:loadOrders,inv_moves:loadMoves};
+async function loadAll(){await Promise.all([loadStores()].concat(Object.values(LOADERS).map(f=>f())));}
+const pendingReload=new Set();let reloadTimer=null;
+function queueReload(t){pendingReload.add(t);clearTimeout(reloadTimer);reloadTimer=setTimeout(async()=>{const ts=[...pendingReload];pendingReload.clear();try{await Promise.all(ts.map(x=>LOADERS[x]()));}catch(e){}scheduleRender();},250);}
+function subscribe(){
+  const ch=sb.channel("inv-all");
+  for(const t of Object.keys(LOADERS))ch.on("postgres_changes",{event:"*",schema:"public",table:t},()=>queueReload(t));
+  ch.subscribe();
+  // 画面に戻ってきたときにも最新にする
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){Object.keys(LOADERS).forEach(queueReload);}});
+}
+function errText(e){const m=(e&&(e.message||e.error_description))||String(e);if(/row-level security|permission/i.test(m))return "この操作をする権限がありません";return m;}
+
+/* ---------- 書き込み ---------- */
+async function saveStock(sid,iid,patch){
+  if(!canEditStore(sid)){toast("この店舗の在庫は変更できません");return;}
+  const k=key(sid,iid);S.stock[k]=Object.assign({},S.stock[k]||{},patch,{updated_at:new Date().toISOString()});
+  const row=Object.assign({store_id:sid,item_id:iid,updated_at:new Date().toISOString()},patch);
+  try{await q(sb.from("inv_stock").upsert(row,{onConflict:"store_id,item_id"}));toast("保存しました");}
+  catch(e){toast("保存できませんでした："+errText(e));await loadStock();render();}
+}
+async function rpc(name,args){const {data,error}=await sb.rpc(name,args);if(error)throw error;return data;}
+
+/* ---------- 画面 ---------- */
+function route(){
+  const h=(location.hash||"").replace("#","");
+  const allowed=S.admin?["overview","orders","history","items"].concat(STORE_IDS):["trips","history",S.myStore];
+  if(allowed.includes(h))return h;
+  return S.admin?"overview":S.myStore;
+}
+function renderNav(){
+  const r=route();let tabs;
+  if(S.admin){
+    const pc=planCount();
+    tabs=[["overview","全店一覧"]].concat(STORE_IDS.map(id=>{const n=storeSummary(id).need;return [id,esc(storeName(id))+(n?' <span class="pill need">'+n+'</span>':"")];})).concat([["orders","移動・発注"+(pc?' <span class="pill need">'+pc+'</span>':"")],["history","履歴"],["items","品目・店舗設定"]]);
+  }else{
+    const n=storeSummary(S.myStore).need;const tc=myTrips().length+myReceipts().length;
+    tabs=[[S.myStore,esc(storeName(S.myStore))+"の在庫"+(n?' <span class="pill need">'+n+'</span>':"")],["trips","移動・入荷"+(tc?' <span class="pill need">'+tc+'</span>':"")],["history","履歴"]];
+  }
+  $("#nav").innerHTML=tabs.map(([id,l])=>'<a href="#'+id+'" class="'+(r===id?"on":"")+'">'+l+'</a>').join("");
+}
+function renderBanners(){$("#banners").innerHTML=S.err?'<div class="banner err">'+esc(S.err)+'</div>':"";}
+function render(){
+  if(!S.user)return;
+  renderNav();renderBanners();
+  const v=$("#view");
+  if(!S.loaded){v.innerHTML='<p class="muted">読み込み中…</p>';return;}
+  const ae=document.activeElement;const fk=ae&&ae.dataset&&ae.dataset.fk;
+  const r=route();
+  if(r==="overview")v.innerHTML=viewOverview();
+  else if(r==="orders")v.innerHTML=viewOrders();
+  else if(r==="trips")v.innerHTML=viewMyTrips();
+  else if(r==="history")v.innerHTML=viewHistory();
+  else if(r==="items")v.innerHTML=viewItems();
+  else v.innerHTML=viewStore(r);
+  if(fk){const el=v.querySelector('[data-fk="'+fk+'"]');if(el)el.focus();}
+}
+let rp=false;
+function scheduleRender(){if(rp)return;rp=true;requestAnimationFrame(()=>{rp=false;const ae=document.activeElement;
+  if(ae&&(ae.tagName==="INPUT"||ae.tagName==="SELECT")&&ae.type!=="checkbox"&&ae.dataset&&ae.dataset.act){ae.addEventListener("blur",()=>setTimeout(scheduleRender,0),{once:true});renderNav();return;}
+  render();});}
+
+function viewOverview(){
+  let h='<div class="grid4">';
+  for(const sid of STORE_IDS){
+    const s=storeSummary(sid);const last=S.checks.find(c=>c.store_id===sid);
+    h+='<a class="storecard" href="#'+sid+'"><div class="name">'+esc(storeName(sid))+'</div><div class="nums"><div><div class="big '+(s.need?"red":"")+'">'+s.need+'</div><div class="lbl">要補充</div></div><div><div class="big">'+s.blank+'</div><div class="lbl">未入力</div></div><div><div class="big">'+s.total+'</div><div class="lbl">品目</div></div></div><div class="lbl" style="margin-top:8px">最終確認：'+(last?esc(fmtFull(last.at)):"まだありません")+'</div></a>';
+  }
+  h+='</div>';
+  const f=S.filter.overview||"all";
+  h+='<div class="card"><h2>全店の在庫数</h2><div class="filters">'+[["all","すべて"],["need","要補充がある品目"]].map(([k,l])=>'<button data-act="filt" data-view="overview" data-f="'+k+'" class="'+(f===k?"on":"")+'">'+l+'</button>').join("")+'</div><div class="tablewrap"><table><thead><tr><th>備品名</th>'+STORE_IDS.map(id=>'<th class="num">'+esc(storeName(id))+'</th>').join("")+'</tr></thead><tbody>';
+  let cat=null,rows=0;
+  for(const it of activeItems()){
+    if(f==="need"&&!STORE_IDS.some(sid=>usedIn(it,sid)&&status(sid,it.id)==="need"))continue;
+    if(it.category!==cat){cat=it.category;h+='<tr class="cat"><td colspan="5">'+esc(cat)+'</td></tr>';}
+    h+='<tr><td>'+esc(it.name)+'</td>';
+    for(const sid of STORE_IDS){
+      if(!usedIn(it,sid)){h+='<td class="num"><span class="cell-q na">—</span></td>';continue;}
+      const s=stk(sid,it.id),st=status(sid,it.id);
+      h+='<td class="num"><span class="cell-q '+(st==="need"?"need":st==="ok"?"ok":"")+'">'+(isNum(s.qty)?s.qty:'<span class="cell-q na">未</span>')+'</span></td>';
+    }
+    h+='</tr>';rows++;
+  }
+  if(!rows)h+='<tr><td colspan="5" class="muted">要補充の品目はありません。</td></tr>';
+  return h+'</tbody></table></div><p class="note">赤＝要補充（在庫数が発注点以下）、緑＝OK、「—」はその店舗で使わない品目です。</p></div>';
+}
+
+function viewStore(sid){
+  const items=itemsFor(sid),sum=storeSummary(sid),f=S.filter[sid]||"all";
+  const dis=canEditStore(sid)?"":" disabled";
+  let h='<div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">'+esc(storeName(sid))+'</h2><span class="muted">要補充 <b style="color:var(--red)">'+sum.need+'</b>　未入力 <b>'+sum.blank+'</b> / '+sum.total+'品目</span></div>';
+  const notes=[];if(extraPct(sid))notes.push('在庫を<b>＋'+extraPct(sid)+'%</b>多めに持つ設定です');if(noDirect(sid))notes.push('発注品は'+esc(storeName(orderVia(sid)))+'に届き、そこから移動します');
+  if(notes.length)h+='<div class="banner warn" style="margin:8px 0 0">この店舗は、'+notes.join('。')+'。</div>';
+  h+='<div class="filters">'+[["all","すべて"],["need","要補充"],["blank","未入力"]].map(([k,l])=>'<button data-act="filt" data-view="'+sid+'" data-f="'+k+'" class="'+(f===k?"on":"")+'">'+l+'</button>').join("")+'</div>';
+  h+='<div class="tablewrap"><table><thead><tr><th>備品名</th><th class="num">在庫数</th><th class="num">発注点</th><th class="num">適正在庫</th><th class="num">判定</th><th class="hide-sm">メモ</th><th class="hide-sm num">更新</th></tr></thead><tbody>';
+  let cat=null,rows=0;
+  for(const it of items){
+    const st=status(sid,it.id);
+    if(f==="need"&&st!=="need")continue;if(f==="blank"&&st!=="blank")continue;
+    if(it.category!==cat){cat=it.category;h+='<tr class="cat"><td colspan="7">'+esc(cat)+'</td></tr>';}
+    const s=stk(sid,it.id);
+    const inp=fd=>'<input type="number" inputmode="numeric" min="0" step="1" data-act="stock" data-sid="'+sid+'" data-iid="'+esc(it.id)+'" data-field="'+fd+'" data-fk="'+sid+it.id+fd+'" value="'+(isNum(s[fd])?s[fd]:"")+'" class="'+(fd==="qty"&&!isNum(s.qty)?"empty":"")+'"'+dis+'>';
+    const coming=onOrder(sid,it.id)+resIn(sid,it.id);
+    h+='<tr class="'+(st==="need"?"need":"")+'"><td>'+esc(it.name)+'</td><td class="num">'+inp("qty")+'</td><td class="num">'+inp("reorder_point")+'</td><td class="num">'+inp("target")+'</td><td class="num">'+pill(st)+(coming?'<div class="note">届く予定 '+coming+'</div>':'')+'</td>'+
+      '<td class="hide-sm"><input type="text" style="width:150px" data-act="stock" data-sid="'+sid+'" data-iid="'+esc(it.id)+'" data-field="memo" data-fk="'+sid+it.id+'memo" value="'+esc(s.memo||"")+'"'+dis+'></td><td class="hide-sm num note">'+esc(fmtDate(s.updated_at))+'</td></tr>';
+    rows++;
+  }
+  if(!rows)h+='<tr><td colspan="7" class="muted">該当する品目はありません。</td></tr>';
+  h+='</tbody></table></div><p class="note">入力欄から離れると自動で保存されます。発注点＝この数以下になったら補充する数、適正在庫＝補充するときにこの数まで戻す数です（空欄なら発注点の2倍で計算）。</p></div>';
+  if(canEditStore(sid))h+='<div class="card"><h3>今回の確認を履歴に残す</h3><p class="muted" style="margin-top:0">在庫を数え終えたら、担当者名を入れて保存してください。</p><div class="row"><input type="text" id="staff" placeholder="担当者名" data-fk="staff'+sid+'" style="width:180px"><button class="primary" data-act="savecheck" data-sid="'+sid+'">確認を保存</button></div></div>';
+  return h;
+}
+
+function tripTable(list,diff){
+  let h='<div class="tablewrap"><table><thead><tr><th>備品名</th><th class="num">数量</th>'+(diff?'<th class="num hide-sm">出す側</th><th class="num hide-sm">受ける側</th>':'')+'</tr></thead><tbody>';
+  for(const m of list)h+='<tr><td>'+esc(m.name||(m.it&&m.it.name))+'</td><td class="num"><b>'+esc(m.qty)+'</b></td>'+(diff?'<td class="num note hide-sm">'+m.fromQty+'→'+(m.fromQty-m.qty)+'</td><td class="num note hide-sm">'+m.toQty+'→'+(m.toQty+m.qty)+'</td>':'')+'</tr>';
+  return h+'</tbody></table></div>';
+}
+function plannedTripsHtml(list,allowCancel){
+  let h='';
+  for(const t of trips(list,"from_store","to_store")){
+    const short=t.list.filter(m=>{const s=stk(m.from_store,m.item_id);return !isNum(s.qty)||s.qty<num(m.qty);});
+    const k=esc(t.from+">"+t.to);
+    h+='<details open><summary><b>'+esc(storeName(t.from))+' → '+esc(storeName(t.to))+'</b><span class="muted">'+t.list.length+'品目</span></summary><div class="inner">'+tripTable(t.list,false)+
+      (short.length?'<div class="banner warn" style="margin:8px 0 0">'+esc(storeName(t.from))+'の今の在庫数が、移動する数より少ない品目があります：'+short.map(m=>esc(m.name)).join("、")+'。在庫数を確認してください。</div>':'')+
+      '<div class="row" style="margin-top:8px"><button class="small primary" data-act="donetrip" data-k="'+k+'">この便を移動した（両店舗の在庫に反映）</button>'+(allowCancel?'<button class="small danger" data-act="canceltrip" data-k="'+k+'">この便を取り消す</button>':'')+'</div></div></details>';
+  }
+  return h;
+}
+function orderHtml(o,canReceive,canCancel){
+  const lines=Array.isArray(o.lines)?o.lines:[];
+  let h='<details><summary><b>'+esc(fmtFull(o.at))+' 確定</b><span class="muted">'+lines.length+'品目</span></summary><div class="inner"><div class="tablewrap"><table><thead><tr><th>備品名</th><th class="num">数量</th><th>届く店舗</th><th class="hide-sm">内訳</th></tr></thead><tbody>';
+  for(const l of lines){const ps=l.per_store||{};h+='<tr><td>'+esc(l.name)+'</td><td class="num"><b>'+esc(l.total)+'</b></td><td>'+Object.keys(ps).map(d=>esc(storeName(d))+' '+esc(ps[d])).join("<br>")+'</td><td class="note hide-sm">'+Object.keys(l.alloc||{}).map(x=>esc(storeName(x))+' '+esc(l.alloc[x])).join("、")+'</td></tr>';}
+  h+='</tbody></table></div><div class="row" style="margin-top:8px"><button class="small" data-act="copyorder" data-id="'+esc(o.id)+'">発注リストをコピー</button>'+(canReceive?'<button class="small primary" data-act="receive" data-id="'+esc(o.id)+'">入荷した</button>':'')+(canCancel?'<button class="small danger" data-act="cancelorder" data-id="'+esc(o.id)+'">発注を取り消す</button>':'')+'</div></div></details>';
+  return h;
+}
+function viewOrders(){
+  const P=computePlan();
+  let h='<div class="card"><h2>移動・発注</h2><p class="muted" style="margin-top:0">4店舗の在庫を合計して、<b>余っている店舗からの移動</b>で足りない分を埋め、<b>それでも足りない分だけ発注</b>します。提案は「確定」ボタン1つで移動と発注をまとめて登録するので、順番を気にする必要はありません。確定した移動や入荷待ちの数は計算に入るので、二重に回したり発注したりしません。</p>';
+  const inc=Object.keys(P.incomplete);
+  if(inc.length)h+='<div class="banner warn" style="margin:0">在庫数か発注点が未入力の品目は計算に入っていません：'+inc.map(sid=>esc(storeName(sid))+' '+P.incomplete[sid].length+'品目').join("、")+'</div>';
+  h+='</div><div class="card"><h3>① 新しい提案</h3>';
+  if(!P.moves.length&&!P.orders.length)h+='<p class="muted">今のところ、移動も発注も必要ありません。</p>';
+  else{
+    const T=trips(P.moves,"from","to");
+    h+='<h3 style="font-size:14px;margin-top:6px">移動（'+T.length+'便）</h3>'+(T.length?'':'<p class="muted">なし</p>');
+    for(const t of T)h+='<details open><summary><b>'+esc(storeName(t.from))+' → '+esc(storeName(t.to))+'</b><span class="muted">'+t.list.length+'品目</span></summary><div class="inner">'+tripTable(t.list,true)+'</div></details>';
+    h+='<h3 style="font-size:14px;margin-top:12px">発注（'+P.orders.length+'品目）</h3>';
+    if(!P.orders.length)h+='<p class="muted">なし（移動だけで足ります）</p>';
+    else{
+      h+='<div class="tablewrap"><table><thead><tr><th>備品名</th>'+STORE_IDS.map(id=>'<th class="num">'+esc(storeName(id))+'着</th>').join("")+'<th class="num">合計</th></tr></thead><tbody>';
+      for(const o of P.orders)h+='<tr><td>'+esc(o.it.name)+'</td>'+STORE_IDS.map(sid=>{const v=o.via[sid];return '<td class="num">'+(o.per[sid]?'<span class="cell-q need">'+o.per[sid]+'</span>'+(v?'<div class="note">'+Object.keys(v).map(x=>'うち'+esc(storeName(x))+'分 '+v[x]).join("<br>")+'</div>':''):'<span class="cell-q na">—</span>')+'</td>';}).join("")+'<td class="num"><b>'+o.total+'</b></td></tr>';
+      h+='</tbody></table></div>';
+    }
+    h+='<div class="row" style="margin-top:12px"><button class="primary" data-act="confirmplan">この内容で確定する</button><span class="note">移動は②移動待ちに、発注は③入荷待ちに入ります。業者への発注は、③の「発注リストをコピー」から行ってください。</span></div>';
+  }
+  h+='</div>';
+  const pm=plannedMoves();
+  h+='<div class="card"><h3>② 移動待ち（'+trips(pm,"from_store","to_store").length+'便）</h3>'+(pm.length?plannedTripsHtml(pm,true)+'<div class="row"><button data-act="copymoves">移動待ちリストをコピー</button></div>':'<p class="muted">移動待ちの便はありません。</p>')+'</div>';
+  const open=S.orders.filter(o=>o.status==="ordered");
+  h+='<div class="card"><h3>③ 入荷待ち（'+open.length+'件）</h3>'+(open.length?open.map(o=>orderHtml(o,true,true)).join(""):'<p class="muted">入荷待ちの発注はありません。</p>')+'<p class="note">「入荷した」を押すと、届いた店舗の在庫に加わり、ほかの店舗の分は自動で②移動待ちに入ります。</p></div>';
+  return h;
+}
+function myTrips(){return plannedMoves().filter(m=>m.from_store===S.myStore||m.to_store===S.myStore);}
+function myReceipts(){return S.orders.filter(o=>o.status==="ordered"&&(o.lines||[]).some(l=>l.per_store&&l.per_store[S.myStore]!=null));}
+function viewMyTrips(){
+  const mt=myTrips(),rc=myReceipts();
+  let h='<div class="card"><h3>移動待ち（'+esc(storeName(S.myStore))+'が関わる便）</h3>'+(mt.length?plannedTripsHtml(mt,false):'<p class="muted">移動待ちの便はありません。</p>')+'<p class="note">品物を渡した（受け取った）ら「この便を移動した」を押してください。出す側・受ける側のどちらが押しても、両方の店舗の在庫が同時に書き換わります。</p></div>';
+  h+='<div class="card"><h3>入荷待ち（'+esc(storeName(S.myStore))+'に届く分）</h3>'+(rc.length?rc.map(o=>orderHtml(o,true,false)).join(""):'<p class="muted">入荷待ちの発注はありません。</p>')+'<p class="note">業者から品物が届いたら「入荷した」を押してください。他店舗の分は自動で移動待ちに入ります。</p></div>';
+  return h;
+}
+
+function viewHistory(){
+  const k=S.filter.histkind||"checks";
+  let h='<div class="card"><h2>履歴</h2><div class="filters">'+[["checks","在庫確認"],["moves","店舗間移動"],["orders","発注"]].map(([a,l])=>'<button data-act="filt" data-view="histkind" data-f="'+a+'" class="'+(k===a?"on":"")+'">'+l+'</button>').join("")+'</div>';
+  const mine=x=>S.admin||x===S.myStore;
+  if(k==="moves"){
+    const dm=S.moves.filter(m=>m.status==="done"&&(S.admin||m.from_store===S.myStore||m.to_store===S.myStore));
+    if(!dm.length)return h+'<p class="muted">まだ記録がありません。</p></div>';
+    h+='<div class="tablewrap"><table><thead><tr><th>日時</th><th>備品名</th><th>移動</th><th class="num">数量</th></tr></thead><tbody>';
+    for(const m of dm)h+='<tr><td class="note">'+esc(fmtFull(m.done_at||m.at))+'</td><td>'+esc(m.name)+'</td><td>'+esc(storeName(m.from_store))+' → '+esc(storeName(m.to_store))+'</td><td class="num">'+esc(m.qty)+'</td></tr>';
+    return h+'</tbody></table></div></div>';
+  }
+  if(k==="orders"){
+    if(!S.orders.length)return h+'<p class="muted">まだ記録がありません。</p></div>';
+    for(const o of S.orders){
+      const st=o.status==="received"?'<span class="pill ok">入荷済 '+esc(fmtDate(o.received_at))+'</span>':o.status==="cancelled"?'<span class="pill none">取消</span>':'<span class="pill need">入荷待ち</span>';
+      const lines=o.lines||[];
+      h+='<details><summary><b>'+esc(fmtFull(o.at))+'</b>'+st+'<span class="muted">'+lines.length+'品目</span></summary><div class="inner"><div class="tablewrap"><table><thead><tr><th>備品名</th><th class="num">数量</th><th class="hide-sm">内訳</th></tr></thead><tbody>';
+      for(const l of lines)h+='<tr><td>'+esc(l.name)+'</td><td class="num">'+esc(l.total)+'</td><td class="note hide-sm">'+Object.keys(l.alloc||{}).map(x=>esc(storeName(x))+' '+esc(l.alloc[x])).join("、")+'</td></tr>';
+      h+='</tbody></table></div></div></details>';
+    }
+    return h+'</div>';
+  }
+  const f=S.admin?(S.filter.history||"all"):S.myStore;
+  if(S.admin)h+='<div class="filters">'+[["all","全店"]].concat(STORE_IDS.map(s=>[s,storeName(s)])).map(([a,l])=>'<button data-act="filt" data-view="history" data-f="'+a+'" class="'+(f===a?"on":"")+'">'+esc(l)+'</button>').join("")+'</div>';
+  const list=S.checks.filter(c=>(f==="all"||c.store_id===f)&&mine(c.store_id));
+  if(!list.length)return h+'<p class="muted">まだ記録がありません。在庫のページで「確認を保存」すると、ここに残ります。</p></div>';
+  for(const c of list){
+    const ents=Array.isArray(c.entries)?c.entries:[];const need=ents.filter(e=>e.status==="need").length;
+    h+='<details><summary><b>'+esc(fmtFull(c.at))+'</b><span>'+esc(storeName(c.store_id))+'</span><span class="muted">担当：'+esc(c.staff||"")+'</span>'+(need?'<span class="pill need">要補充 '+need+'</span>':'<span class="pill ok">要補充なし</span>')+'</summary><div class="inner"><div class="tablewrap"><table><thead><tr><th>備品名</th><th class="num">在庫数</th><th class="num">発注点</th><th class="num">適正在庫</th><th class="num">判定</th></tr></thead><tbody>';
+    for(const e of ents)h+='<tr class="'+(e.status==="need"?"need":"")+'"><td>'+esc(e.name)+'</td><td class="num">'+(isNum(e.qty)?e.qty:"")+'</td><td class="num">'+(isNum(e.reorder_point)?e.reorder_point:"")+'</td><td class="num">'+(isNum(e.target)?e.target:"")+'</td><td class="num">'+pill(e.status)+'</td></tr>';
+    h+='</tbody></table></div>'+(S.admin?'<div style="margin-top:8px"><button class="small danger" data-act="delcheck" data-id="'+esc(c.id)+'">この記録を削除</button></div>':'')+'</div></details>';
+  }
+  return h+'</div>';
+}
+
+function viewItems(){
+  let h='<div class="card"><h2>店舗ごとの設定</h2><div class="grid4" style="margin:0">';
+  for(const sid of STORE_IDS){
+    h+='<div><div style="font-weight:700">'+esc(storeName(sid))+'</div>'+
+      '<label class="opt"><input type="checkbox" data-act="cfg" data-sid="'+sid+'" data-field="transfer"'+(canTransfer(sid)?" checked":"")+'>店舗間移動に参加する</label>'+
+      '<label class="opt">在庫を多めに持つ ＋<input type="number" min="0" step="5" style="width:60px" data-act="cfgnum" data-sid="'+sid+'" data-field="extra_pct" data-fk="cfg'+sid+'" value="'+(extraPct(sid)||"")+'">%</label>'+
+      '<label class="opt"><input type="checkbox" data-act="cfg" data-sid="'+sid+'" data-field="no_direct"'+(noDirect(sid)?" checked":"")+'>直接発注しない'+(noDirect(sid)?'→ 届く店舗 <select data-act="cfgvia" data-sid="'+sid+'">'+STORE_IDS.filter(x=>x!==sid&&!noDirect(x)).map(x=>'<option value="'+x+'"'+(orderVia(sid)===x?" selected":"")+'>'+esc(storeName(x))+'</option>').join("")+'</select>':'')+'</label></div>';
+  }
+  h+='</div><p class="note">店舗名は予約表の店舗名を使っています。「多めに持つ」は、その店舗の発注点と適正在庫を割合だけ上乗せして計算します。「直接発注しない」店舗の不足分は、届く店舗の発注に含めて、入荷後に自動で移動待ちに入ります。</p></div>';
+  h+='<div class="card"><h2>品目を追加</h2><div class="row"><input type="text" id="newname" placeholder="備品名（例：マスク）" style="flex:1;min-width:180px" data-fk="newname"><select id="newcat">'+CATS.map(c=>'<option>'+c+'</option>').join("")+'</select></div>'+
+    '<div class="row" style="margin-top:8px"><span class="muted">使う店舗：</span><div class="storechecks">'+STORE_IDS.map(sid=>'<label><input type="checkbox" class="newstore" value="'+sid+'" checked>'+esc(storeName(sid))+'</label>').join("")+'</div><button class="primary" data-act="additem">追加</button></div></div>';
+  const list=activeItems();
+  h+='<div class="card"><h2>品目一覧（'+list.length+'）</h2><div class="tablewrap"><table><thead><tr><th>備品名</th><th>区分</th><th>使う店舗</th><th class="num">並び</th><th></th></tr></thead><tbody>';
+  list.forEach((it,i)=>{
+    h+='<tr><td><input type="text" data-act="itemname" data-iid="'+esc(it.id)+'" data-fk="in'+esc(it.id)+'" value="'+esc(it.name)+'" style="width:100%;min-width:180px"></td>'+
+      '<td><select data-act="itemcat" data-iid="'+esc(it.id)+'">'+CATS.map(c=>'<option'+(c===it.category?" selected":"")+'>'+c+'</option>').join("")+'</select></td>'+
+      '<td><div class="storechecks">'+STORE_IDS.map(sid=>'<label><input type="checkbox" data-act="itemstore" data-iid="'+esc(it.id)+'" value="'+sid+'"'+(usedIn(it,sid)?" checked":"")+'>'+esc(storeName(sid))+'</label>').join("")+'</div></td>'+
+      '<td class="num" style="white-space:nowrap"><button class="small" data-act="sort" data-iid="'+esc(it.id)+'" data-dir="-1"'+(i===0?" disabled":"")+'>↑</button> <button class="small" data-act="sort" data-iid="'+esc(it.id)+'" data-dir="1"'+(i===list.length-1?" disabled":"")+'>↓</button></td>'+
+      '<td><button class="small danger" data-act="delitem" data-iid="'+esc(it.id)+'">削除</button></td></tr>';
+  });
+  return h+'</tbody></table></div><p class="note">チェックを外すと、その店舗の画面に表示されなくなります（入力済みの数は残ります）。</p></div>';
+}
+
+/* ---------- コピー用テキスト ---------- */
+function orderText(o){let t="【備品 発注リスト】"+fmtFull(o.at)+"\n";for(const l of (o.lines||[])){t+="・"+l.name+"："+l.total+"（"+Object.keys(l.per_store||{}).map(d=>storeName(d)+"着").join("・")+"）\n";}return t;}
+function movesText(){let t="【備品 店舗間移動】"+today()+"\n";for(const tr of trips(plannedMoves(),"from_store","to_store")){t+="\n■ "+storeName(tr.from)+" → "+storeName(tr.to)+"\n";for(const m of tr.list)t+="・"+m.name+" "+m.qty+"\n";}return t;}
+async function copyText(txt){try{await navigator.clipboard.writeText(txt);toast("コピーしました");}catch(e){const ta=document.createElement("textarea");ta.value=txt;$("#view").appendChild(ta);ta.select();toast("下の欄から選択してコピーしてください");}}
+
+/* ---------- 操作 ---------- */
+async function guarded(b,fn){if(S.busy)return;S.busy=true;if(b)b.disabled=true;try{await fn();}catch(e){toast("できませんでした："+errText(e));}finally{S.busy=false;}}
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act;
+  if(act==="filt"){S.filter[b.dataset.view]=b.dataset.f;render();return;}
+  if(act==="logout"){await sb.auth.signOut();location.reload();return;}
+  if(act==="copymoves"){await copyText(movesText());return;}
+  if(act==="copyorder"){const o=S.orders.find(x=>x.id===b.dataset.id);if(o)await copyText(orderText(o));return;}
+  // 2回押しで実行するもの
+  if(["canceltrip","cancelorder","delitem","delcheck"].includes(act)&&!b.dataset.sure){b.dataset.sure="1";b.dataset.label=b.textContent;b.textContent="もう一度押すと実行";setTimeout(()=>{if(b.isConnected){delete b.dataset.sure;b.textContent=b.dataset.label;}},4000);return;}
+  if(act==="confirmplan")return guarded(b,async()=>{
+    const P=computePlan();
+    const moves=P.moves.map(m=>({item_id:m.it.id,name:m.it.name,from:m.from,to:m.to,qty:m.qty}));
+    const lines=P.orders.map(o=>({item_id:o.it.id,name:o.it.name,per_store:o.per,alloc:o.alloc,dest:o.dest,total:o.total}));
+    await rpc("inv_confirm_plan",{p_moves:moves,p_lines:lines});
+    await Promise.all([loadMoves(),loadOrders()]);
+    toast("確定しました（移動"+trips(P.moves,"from","to").length+"便・発注"+P.orders.length+"品目）");render();
+  });
+  if(act==="donetrip")return guarded(b,async()=>{const [f,t]=b.dataset.k.split(">");const n=await rpc("inv_complete_trip",{p_from:f,p_to:t});await Promise.all([loadMoves(),loadStock()]);toast(storeName(f)+"→"+storeName(t)+"："+n+"品目を在庫に反映しました");render();});
+  if(act==="canceltrip")return guarded(b,async()=>{const [f,t]=b.dataset.k.split(">");await rpc("inv_cancel_trip",{p_from:f,p_to:t});await loadMoves();toast("便を取り消しました");render();});
+  if(act==="receive")return guarded(b,async()=>{const n=await rpc("inv_receive_order",{p_order:b.dataset.id});await Promise.all([loadOrders(),loadStock(),loadMoves()]);toast("入荷分を在庫に加えました"+(n?"（他店舗の分"+n+"件を移動待ちに入れました）":""));render();});
+  if(act==="cancelorder")return guarded(b,async()=>{await rpc("inv_cancel_order",{p_order:b.dataset.id});await loadOrders();toast("発注を取り消しました");render();});
+  if(act==="savecheck")return guarded(b,async()=>{
+    const sid=b.dataset.sid;const staff=($("#staff").value||"").trim();
+    if(!staff){toast("担当者名を入れてください");b.disabled=false;return;}
+    const entries=itemsFor(sid).map(it=>{const s=stk(sid,it.id);return {item_id:it.id,name:it.name,qty:s.qty??null,reorder_point:s.reorder_point??null,target:s.target??null,status:status(sid,it.id)};});
+    await q(sb.from("inv_checks").insert({store_id:sid,staff,entries}));await loadChecks();toast("確認を保存しました");render();
+  });
+  if(act==="delcheck")return guarded(b,async()=>{await q(sb.from("inv_checks").delete().eq("id",b.dataset.id));await loadChecks();toast("削除しました");render();});
+  if(act==="additem")return guarded(b,async()=>{
+    const name=($("#newname").value||"").trim();if(!name){toast("備品名を入れてください");b.disabled=false;return;}
+    const stores=[...document.querySelectorAll(".newstore:checked")].map(x=>x.value);if(!stores.length){toast("使う店舗を1つ以上選んでください");b.disabled=false;return;}
+    const cat=$("#newcat").value;const list=activeItems();const same=list.filter(i=>i.category===cat);
+    let sort=list.reduce((m,i)=>Math.max(m,i.sort||0),0)+1;
+    if(same.length){const last=same[same.length-1].sort||0;const next=list.find(i=>(i.sort||0)>last);sort=next?(last+(next.sort||0))/2:last+1;}
+    await q(sb.from("inv_items").insert({name,category:cat,stores,sort}));await loadItems();toast("「"+name+"」を追加しました");render();
+  });
+  if(act==="delitem")return guarded(b,async()=>{await q(sb.from("inv_items").update({deleted:true,updated_at:new Date().toISOString()}).eq("id",b.dataset.iid));await loadItems();toast("削除しました");render();});
+  if(act==="sort")return guarded(b,async()=>{
+    const list=activeItems();const i=list.findIndex(x=>x.id===b.dataset.iid);const j=i+Number(b.dataset.dir);if(i<0||j<0||j>=list.length)return;
+    const a=list[i],c=list[j];let sa=a.sort||0,sc=c.sort||0;if(sa===sc)sc=sa+(j>i?1:-1);
+    await q(sb.from("inv_items").update({sort:sc,category:c.category}).eq("id",a.id));await q(sb.from("inv_items").update({sort:sa}).eq("id",c.id));await loadItems();render();
+  });
+});
+document.addEventListener("change",async e=>{
+  const el=e.target;const act=el.dataset&&el.dataset.act;if(!act)return;
+  if(act==="stock"){
+    const sid=el.dataset.sid,iid=el.dataset.iid,fd=el.dataset.field;let val;
+    if(fd==="memo"){val=el.value.trim();if((stk(sid,iid).memo||"")===val)return;}
+    else{const raw=el.value.trim();if(raw===""){val=null;}else{const n=Number(raw);if(!isFinite(n)||n<0){toast("0以上の数を入れてください");el.value="";return;}val=Math.round(n*100)/100;}const cur=stk(sid,iid)[fd];if((isNum(cur)?cur:null)===val)return;}
+    await saveStock(sid,iid,{[fd]:val});scheduleRender();return;
+  }
+  if(act==="cfg"||act==="cfgnum"||act==="cfgvia"){
+    const sid=el.dataset.sid;let patch;
+    if(act==="cfg")patch={[el.dataset.field]:el.checked};
+    else if(act==="cfgnum"){const n=el.value.trim()===""?0:Number(el.value);if(!isFinite(n)||n<0){toast("0以上の数を入れてください");return;}patch={extra_pct:n};}
+    else patch={order_via:el.value};
+    if(patch.no_direct===true&&!cfg(sid).order_via)patch.order_via=STORE_IDS.find(x=>x!==sid&&!noDirect(x));
+    try{await q(sb.from("inv_store_settings").upsert(Object.assign({store_id:sid,updated_at:new Date().toISOString()},patch),{onConflict:"store_id"}));await loadCfg();toast("保存しました");render();}catch(err){toast("保存できませんでした："+errText(err));}
+    return;
+  }
+  if(act==="itemname"||act==="itemcat"||act==="itemstore"){
+    const it=S.items.find(i=>i.id===el.dataset.iid);if(!it)return;let patch;
+    if(act==="itemname"){const v=el.value.trim();if(!v||v===it.name)return;patch={name:v};}
+    else if(act==="itemcat")patch={category:el.value};
+    else patch={stores:[...document.querySelectorAll('input[data-act="itemstore"][data-iid="'+CSS.escape(it.id)+'"]')].filter(x=>x.checked).map(x=>x.value)};
+    try{await q(sb.from("inv_items").update(Object.assign(patch,{updated_at:new Date().toISOString()})).eq("id",it.id));await loadItems();toast("保存しました");scheduleRender();}catch(err){toast("保存できませんでした："+errText(err));}
+  }
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&e.target.matches('input[data-act="stock"]')){
+    e.preventDefault();const ins=[...document.querySelectorAll('input[data-act="stock"][data-field="'+e.target.dataset.field+'"]')];const i=ins.indexOf(e.target);const nx=ins[i+1];const nfk=nx&&nx.dataset.fk;e.target.blur();
+    if(nfk)setTimeout(()=>{const n=document.querySelector('[data-fk="'+nfk+'"]');if(n){n.focus();n.select&&n.select();}},50);
+  }
+});
+window.addEventListener("hashchange",()=>{render();window.scrollTo(0,0);});
+
+/* ---------- ログイン ---------- */
+function showLogin(msg){
+  $("#who").innerHTML='<a href="'+YOYAKU_URL+'">予約表へ</a>';$("#nav").innerHTML="";$("#banners").innerHTML="";
+  $("#view").innerHTML='<form class="login" id="lf"><h2>ログイン</h2><p class="muted" style="text-align:center;margin:0">予約表と同じメールアドレスとパスワードです</p>'+(msg?'<div class="banner err" style="margin-top:12px">'+esc(msg)+'</div>':'')+'<label>メールアドレス</label><input type="email" id="le" autocomplete="username" required><label>パスワード</label><input type="password" id="lp" autocomplete="current-password" required><button class="primary" type="submit">ログイン</button></form>';
+  $("#lf").addEventListener("submit",async ev=>{
+    ev.preventDefault();const btn=ev.target.querySelector("button");btn.disabled=true;
+    const {data,error}=await sb.auth.signInWithPassword({email:$("#le").value.trim(),password:$("#lp").value});
+    if(error){showLogin("メールアドレスかパスワードが違います");return;}
+    start(data.user);
+  });
+}
+async function start(user){
+  S.user=user;
+  $("#view").innerHTML='<p class="muted">読み込み中…</p>';
+  try{
+    const pr=await q(sb.from("profiles").select("role,store_id").eq("user_id",user.id).maybeSingle());
+    if(!pr){await sb.auth.signOut();showLogin("このアカウントは店舗に登録されていません。管理者に連絡してください。");return;}
+    S.admin=pr.role==="admin";S.myStore=pr.store_id;
+    if(!S.admin&&!STORE_IDS.includes(S.myStore)){showLogin("このアカウントの店舗が設定されていません。");return;}
+    await loadAll();S.loaded=true;
+  }catch(e){S.err="データを読み込めませんでした（"+errText(e)+"）。データベースの準備（zaiko-schema.sql）が済んでいるか確認してください。";S.loaded=true;}
+  $("#who").innerHTML='<span>'+esc(S.admin?"管理者":storeName(S.myStore))+'</span><a href="'+YOYAKU_URL+'">予約表へ</a><button class="link" data-act="logout">ログアウト</button>';
+  render();subscribe();
+}
+async function boot(){
+  if(!window.supabase){$("#view").innerHTML='<div class="banner err">通信の準備ができませんでした。ページを開き直してください。</div>';return;}
+  sb=supabase.createClient(SB_URL,SB_KEY);
+  const {data}=await sb.auth.getSession();
+  if(data&&data.session&&data.session.user)start(data.session.user);else showLogin();
+}
+boot();
+})();
+</script>
+</body>
+</html>
