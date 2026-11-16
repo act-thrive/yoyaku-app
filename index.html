@@ -171,7 +171,7 @@ const sname=id=>(STORES.find(s=>s.id===id)||{name:id}).name;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const P=[];
 const B={};
-const S={mv:null,one:false,role:'staff',store:'',date:new Date(),pid:null,sel:null,q:'',view:'day',ws:0,cfgOpen:{},mk:{j:0,h:0,r:0,n:0},mode:'loading',admin:false,canW:true,psig:'',rf:'',rt:''};
+const S={nx:false,mv:null,one:false,role:'staff',store:'',date:new Date(),pid:null,sel:null,q:'',view:'day',ws:0,cfgOpen:{},mk:{j:0,h:0,r:0,n:0},mode:'loading',admin:false,canW:true,psig:'',rf:'',rt:''};
 S.date.setHours(0,0,0,0);
 let sb=null,ME=null;
 let ABSL=[];const ABS={};
@@ -223,9 +223,9 @@ function sugg(){
 const MK=[['j','実費'],['k','実費更新日'],['h','鍼'],['r','レセ（今月初診）'],['n','新規']];
 function patient(){
  const p=P.find(x=>x.id===S.pid);
- const sig=[S.pid,p&&p.s,p&&p.nw,S.mk.j,S.mk.k,S.mk.h,S.mk.r,S.mk.n,S.mk.w,S.canW].join('|');
+ const sig=[S.nx,S.pid,p&&p.s,p&&p.nw,S.mk.j,S.mk.k,S.mk.h,S.mk.r,S.mk.n,S.mk.w,S.canW].join('|');
  if(sig===S.psig)return;S.psig=sig;
- $('psel').innerHTML=p?'<span>選択中：<strong>'+esc(p.n)+'</strong>さん'+(p.c?' <small>No.'+esc(p.c)+'</small>':'')+(p.nw?'（新規）':'')+'</span><span class="note" style="margin:0">空き枠を押すと予約が入ります</span><button class="btn" id="pselclr" style="margin-left:auto">選択を解除</button>':'';
+ $('psel').innerHTML=p?'<span>選択中：<strong>'+esc(p.n)+'</strong>さん'+(p.c?' <small>No.'+esc(p.c)+'</small>':'')+(p.nw?'（新規）':'')+'</span>'+(S.nx?'<span style="margin:0;font-weight:700">次回予約：空き枠を押すと確定します（「‹」「›」で日付を移動）</span>':'<span class="note" style="margin:0">空き枠を押すと予約が入ります</span>')+'<button class="btn" id="pselclr" style="margin-left:auto">選択を解除</button>':'';
  if(!p){$('patient').innerHTML='';return}
  const others=STORES.filter(s=>s.id!==p.s).map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
  $('patient').innerHTML=`<div class="panel"><div class="row"><strong>${esc(p.n)}さん</strong><span>通う店舗：${sname(p.s)}</span>
@@ -249,7 +249,7 @@ function detail(){
  const pb=b.cont?B[b.cont]:b;
  const [dk,,s,t]=S.sel.split('|'),dd=fromIso(dk);
  const pid=b.pid;
- $('detail').innerHTML=`<div class="panel row"><span>${esc(pn(pid))}さん　${md(dd)} ${fmt(+t)}　${s==='q'?'10分枠':lnm(STORES.find(x=>x.id===S.store),+s)}</span>${MK.map(([f,l])=>`<label class="chk"><input type="checkbox" data-bm="${f}"${(pb&&pb.m&&pb.m[f])?' checked':''}> ${l}</label>`).join('')}<button class="btn" id="mvbtn">時間を変更</button><button class="btn d" id="cancel">予約を取り消す</button><button class="btn" id="close">閉じる</button></div>`;
+ $('detail').innerHTML=`<div class="panel row"><span>${esc(pn(pid))}さん　${md(dd)} ${fmt(+t)}　${s==='q'?'10分枠':lnm(STORES.find(x=>x.id===S.store),+s)}</span>${MK.map(([f,l])=>`<label class="chk"><input type="checkbox" data-bm="${f}"${(pb&&pb.m&&pb.m[f])?' checked':''}> ${l}</label>`).join('')}<button class="btn p" id="nxbtn">次回予約</button><button class="btn" id="mvbtn">時間を変更</button><button class="btn d" id="cancel">予約を取り消す</button><button class="btn" id="close">閉じる</button></div>`;
 }
 const mk=b=>{if(b.cont)return '<span class="nm" style="color:var(--mut)">↓</span>';const m=b.m||{};return '<span class="nm'+(m.n?' nw':'')+(m.j?' jh':'')+(m.k?' kc':'')+'">'+esc(pn(b.pid))+'</span>'+(pcn(b.pid)?'<span class="no">No.'+esc(pcn(b.pid))+'</span>':'')+(m.r?'<i class="rs">レセ</i>':'')+(m.h?'<i class="hr">ハ</i>':'')};
 function table(){
@@ -496,7 +496,8 @@ async function book(s,t,pid,date){
  B[k]={pid,m:marks,span:two?2:1,id};
  if(two)B[k2]={pid,cont:k};
  S.mk={j:0,h:0,r:0,n:0};
- toast(pn(pid)+'さんを予約しました　'+fmt(t)+'　'+(s==='q'?'10分枠':lnm(st0,s)));
+ toast(pn(pid)+'さんを'+(S.nx?'次回 '+md(date)+' ':'')+fmt(t)+' に予約しました　'+(s==='q'?'10分枠':lnm(st0,s)));
+ if(S.nx){S.nx=false;S.pid=null;S.psig=''}
  return true;
 }
 async function moveBooking(s,t,date){
@@ -565,7 +566,7 @@ $('wkall').onclick=()=>{S.one=false;S.sel=null;render()};
 document.querySelectorAll('[data-role]').forEach(b=>b.onclick=()=>{S.role=b.dataset.role;render()});
 $('q').oninput=e=>{S.q=e.target.value;sugg()};
 $('q').onfocus=sugg;
-$('sug').onclick=e=>{const b=e.target.closest('[data-p]');if(!b)return;const p=P.find(x=>String(x.id)===b.dataset.p);if(!p)return;S.pid=p.id;S.mk={j:0,h:0,r:0,n:p.nw?1:0};S.sel=null;S.q='';$('q').value='';$('sug').innerHTML='';render()};
+$('sug').onclick=e=>{const b=e.target.closest('[data-p]');if(!b)return;const p=P.find(x=>String(x.id)===b.dataset.p);if(!p)return;S.nx=false;S.pid=p.id;S.mk={j:0,h:0,r:0,n:p.nw?1:0};S.sel=null;S.q='';$('q').value='';$('sug').innerHTML='';render()};
 $('newbtn').onclick=()=>{$('nform').hidden=!$('nform').hidden;if(!$('nform').hidden)$('nn').focus()};
 $('ncancel').onclick=()=>{$('nform').hidden=true};
 $('nsave').onclick=async()=>{
@@ -582,7 +583,7 @@ $('nsave').onclick=async()=>{
 $('patient').onclick=async e=>{
  const id=e.target.id,p=P.find(x=>x.id===S.pid);
  if(!p)return;
- if(id==='clear'){S.pid=null;render();sugg()}
+ if(id==='clear'){S.nx=false;S.pid=null;render();sugg()}
  if(id==='esave'){
   if(!wr())return;
   const nm=$('en').value.trim(),kn=$('ek').value.trim(),num=$('ec').value.normalize('NFKC').trim();
@@ -660,7 +661,8 @@ $('tt').onclick=async e=>{
 $('detail').onclick=async e=>{
  if(e.target.id==='cancel'){if(await unbook(S.sel)){S.sel=null;toast('予約を取り消しました')}render()}
  if(e.target.id==='close'){S.sel=null;render()}
- if(e.target.id==='mvbtn'){const b=B[S.sel];if(!b)return;if(!wr())return;S.mv=b.cont||S.sel;S.sel=null;render();toast('移動先の空いている枠を押してください')}
+ if(e.target.id==='nxbtn'){const k=S.sel,b=B[k];if(!b)return;if(!wr())return;const pb=b.cont?B[b.cont]:b;if(!pb)return;const p=P.find(x=>x.id===pb.pid);if(!p){toast('この患者さんは、この店舗の患者一覧にいません');return}const m=pb.m||{};S.pid=p.id;S.mk={j:m.j?1:0,h:m.h?1:0,r:0,n:0,w:pb.span===2?1:0};S.nx=true;S.mv=null;S.sel=null;S.psig='';render();toast(p.n+'さんの次回の日時の空き枠を押してください')}
+ if(e.target.id==='mvbtn'){const b=B[S.sel];if(!b)return;if(!wr())return;S.nx=false;S.mv=b.cont||S.sel;S.sel=null;render();toast('移動先の空いている枠を押してください')}
  if(e.target.id==='mvcancel'){S.mv=null;render()}
 };
 $('patient').onchange=e=>{const f=e.target.dataset.mk;if(f)S.mk[f]=e.target.checked?1:0};
@@ -695,7 +697,7 @@ $('plist').onclick=e=>{
  if(e.target.closest('#plMore')){PL.n+=200;plRender(true);return}
  const b=e.target.closest('[data-pl]');if(!b)return;
  const p=P.find(x=>String(x.id)===b.dataset.pl);if(!p)return;
- S.pid=p.id;S.mk={j:0,h:0,r:0,n:p.nw?1:0};S.sel=null;S.psig='';$('plist').hidden=true;render();window.scrollTo({top:0,behavior:'smooth'});
+ S.nx=false;S.pid=p.id;S.mk={j:0,h:0,r:0,n:p.nw?1:0};S.sel=null;S.psig='';$('plist').hidden=true;render();window.scrollTo({top:0,behavior:'smooth'});
 };
 let STP=null;
 function stOpen(){
@@ -909,7 +911,7 @@ init();
  },30));
 });
 
-$('psel').onclick=e=>{if(e.target.id==='pselclr'){S.pid=null;S.psig='';render();sugg()}};
+$('psel').onclick=e=>{if(e.target.id==='pselclr'){S.nx=false;S.pid=null;S.psig='';render();sugg()}};
 </script>
 </body>
 </html>
