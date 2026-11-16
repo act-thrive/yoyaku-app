@@ -123,9 +123,10 @@ function usedIn(it,sid){return Array.isArray(it.stores)?it.stores.includes(sid):
 function itemsFor(sid){return activeItems().filter(i=>usedIn(i,sid));}
 function key(sid,iid){return sid+"__"+iid;}
 function stk(sid,iid){return S.stock[key(sid,iid)]||{};}
-function rpOf(sid,s){return adj(sid,s.reorder_point);}
-function targetOf(sid,s){const base=isNum(s.target)?s.target:Math.max(s.reorder_point*2,s.reorder_point+1);return adj(sid,base);}
-function status(sid,iid){const s=stk(sid,iid);if(!isNum(s.qty))return "blank";if(!isNum(s.reorder_point))return "nopoint";return s.qty<=rpOf(sid,s)?"need":"ok";}
+function rpRaw(s){return isNum(s.reorder_point)?s.reorder_point:isNum(s.target)?Math.max(0,s.target-1):null;}
+function rpOf(sid,s){return adj(sid,rpRaw(s));}
+function targetOf(sid,s){const base=isNum(s.target)?s.target:Math.max(s.reorder_point*2,s.reorder_point+1);return Math.max(adj(sid,base),rpOf(sid,s)+1);}
+function status(sid,iid){const s=stk(sid,iid);if(!isNum(s.qty))return "blank";if(!isNum(rpRaw(s)))return "nopoint";return s.qty<=rpOf(sid,s)?"need":"ok";}
 function pill(st){return st==="need"?'<span class="pill need">要補充</span>':st==="ok"?'<span class="pill ok">OK</span>':st==="nopoint"?'<span class="pill none">発注点なし</span>':'<span class="pill none">未入力</span>';}
 function fmtDate(iso){if(!iso)return "";const d=new Date(iso);if(isNaN(d))return "";return (d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
 function fmtFull(iso){const d=new Date(iso);if(isNaN(d))return "";return d.getFullYear()+"/"+(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
@@ -144,7 +145,7 @@ function computePlan(){
     const needs=[],donors=[];
     for(const sid of STORE_IDS.filter(x=>usedIn(it,x))){
       const s=stk(sid,it.id);
-      if(!isNum(s.qty)||!isNum(s.reorder_point)){(incomplete[sid]=incomplete[sid]||[]).push(it.name);continue;}
+      if(!isNum(s.qty)||!isNum(rpRaw(s))){(incomplete[sid]=incomplete[sid]||[]).push(it.name);continue;}
       const tgt=targetOf(sid,s),avail=s.qty-resOut(sid,it.id),eff=avail+onOrder(sid,it.id)+resIn(sid,it.id);
       if(eff<=rpOf(sid,s)){const sh=Math.ceil(tgt-eff);if(sh>0)needs.push({sid,sh,qty:eff,tr:canTransfer(sid)});}
       else if(avail>tgt&&canTransfer(sid)){const sur=Math.floor(avail-tgt);if(sur>0)donors.push({sid,sur,qty:avail});}
@@ -243,8 +244,13 @@ function render(){
   if(fk){const el=v.querySelector('[data-fk="'+fk+'"]');if(el)el.focus();}
 }
 let rp=false;
+function refreshPills(){document.querySelectorAll('input[data-act="stock"][data-field="qty"]').forEach(inp=>{const sid=inp.dataset.sid,iid=inp.dataset.iid,tr=inp.closest("tr");if(!tr)return;const st=status(sid,iid),p=tr.querySelector(".pill");if(p)p.outerHTML=pill(st);tr.classList.toggle("need",st==="need");inp.classList.toggle("empty",!isNum(stk(sid,iid).qty));
+  const q=stk(sid,iid).qty,box=inp.parentElement.querySelector(".usebox"),want=canEditStore(sid)&&isNum(q)&&q>0;
+  if(want&&!box)inp.insertAdjacentHTML("afterend",'<div class="usebox" style="margin-top:4px"><button class="small" data-act="use" data-sid="'+sid+'" data-iid="'+esc(iid)+'">使った</button></div>');
+  else if(!want&&box&&!box.querySelector(".usen"))box.remove();});}
 function scheduleRender(){if(rp)return;rp=true;requestAnimationFrame(()=>{rp=false;const ae=document.activeElement;
-  if(ae&&(ae.tagName==="INPUT"||ae.tagName==="SELECT")&&ae.type!=="checkbox"&&ae.dataset&&ae.dataset.act){ae.addEventListener("blur",()=>setTimeout(scheduleRender,0),{once:true});renderNav();return;}
+  if(ae&&(ae.tagName==="INPUT"||ae.tagName==="SELECT")&&ae.type!=="checkbox"&&ae.dataset&&ae.dataset.act){ae.addEventListener("blur",()=>setTimeout(scheduleRender,0),{once:true});refreshPills();renderNav();return;}
+  if(ae&&ae.classList&&ae.classList.contains("usen")){refreshPills();renderNav();return;}
   render();});}
 
 function viewOverview(){
@@ -288,12 +294,12 @@ function viewStore(sid){
     const s=stk(sid,it.id);
     const inp=fd=>'<input type="number" inputmode="numeric" min="0" step="1" data-act="stock" data-sid="'+sid+'" data-iid="'+esc(it.id)+'" data-field="'+fd+'" data-fk="'+sid+it.id+fd+'" value="'+(isNum(s[fd])?s[fd]:"")+'" class="'+(fd==="qty"&&!isNum(s.qty)?"empty":"")+'"'+dis+'>';
     const coming=onOrder(sid,it.id)+resIn(sid,it.id);
-    h+='<tr class="'+(st==="need"?"need":"")+'"><td>'+esc(it.name)+'</td><td class="num">'+inp("qty")+(canEditStore(sid)&&isNum(s.qty)&&s.qty>0?'<div class="usebox" style="margin-top:4px"><button class="small" data-act="use" data-sid="'+sid+'" data-iid="'+esc(it.id)+'">使った</button></div>':'')+'</td><td class="num">'+inp("reorder_point")+'</td><td class="num">'+inp("target")+'</td><td class="num">'+pill(st)+(coming?'<div class="note">届く予定 '+coming+'</div>':'')+'</td>'+
+    h+='<tr class="'+(st==="need"?"need":"")+'"><td>'+esc(it.name)+'</td><td class="num">'+inp("qty")+(canEditStore(sid)&&isNum(s.qty)&&s.qty>0?'<div class="usebox" style="margin-top:4px"><button class="small" data-act="use" data-sid="'+sid+'" data-iid="'+esc(it.id)+'">使った</button></div>':'')+'</td><td class="num">'+inp("reorder_point")+(extraPct(sid)&&isNum(rpRaw(s))&&rpOf(sid,s)!==rpRaw(s)?'<div class="note">＋'+extraPct(sid)+'%で '+rpOf(sid,s)+'</div>':'')+'</td><td class="num">'+inp("target")+(extraPct(sid)&&(isNum(s.target)||isNum(s.reorder_point))&&targetOf(sid,s)!==s.target?'<div class="note">＋'+extraPct(sid)+'%で '+targetOf(sid,s)+'</div>':'')+'</td><td class="num">'+pill(st)+(coming?'<div class="note">届く予定 '+coming+'</div>':'')+'</td>'+
       '<td class="num hide-sm note">'+(S.usageReady?usage30(sid,it.id):'')+'</td><td class="hide-sm"><input type="text" style="width:150px" data-act="stock" data-sid="'+sid+'" data-iid="'+esc(it.id)+'" data-field="memo" data-fk="'+sid+it.id+'memo" value="'+esc(s.memo||"")+'"'+dis+'></td><td class="hide-sm num note">'+esc(fmtDate(s.updated_at))+'</td></tr>';
     rows++;
   }
   if(!rows)h+='<tr><td colspan="8" class="muted">該当する品目はありません。</td></tr>';
-  h+='</tbody></table></div><p class="note">入力欄から離れると自動で保存されます。品物を使ったときは在庫数の下の「使った」を押すと、その数だけ在庫が減り、使用数として記録されます。発注点＝この数以下になったら補充する数、適正在庫＝補充するときにこの数まで戻す数です（空欄なら発注点の2倍で計算）。</p></div>';
+  h+='</tbody></table></div><p class="note">入力欄から離れると自動で保存されます。品物を使ったときは在庫数の下の「使った」を押すと、その数だけ在庫が減り、使用数として記録されます。発注点＝この数以下になったら補充する数、適正在庫＝補充するときにこの数まで戻す数です。発注点が空欄のときは、在庫が適正在庫より少なくなったら「要補充」になります（適正在庫が空欄なら発注点の2倍で計算）。</p></div>';
   if(canEditStore(sid))h+='<div class="card"><h3>今回の確認を履歴に残す</h3><p class="muted" style="margin-top:0">在庫を数え終えたら、担当者名を入れて保存してください。</p><div class="row"><input type="text" id="staff" placeholder="担当者名" data-fk="staff'+sid+'" style="width:180px"><button class="primary" data-act="savecheck" data-sid="'+sid+'">確認を保存</button></div></div>';
   return h;
 }
@@ -325,7 +331,7 @@ function viewOrders(){
   const P=computePlan();
   let h='<div class="card"><h2>移動・発注</h2><p class="muted" style="margin-top:0">4店舗の在庫を合計して、<b>余っている店舗からの移動</b>で足りない分を埋め、<b>それでも足りない分だけ発注</b>します。提案は「確定」ボタン1つで移動と発注をまとめて登録するので、順番を気にする必要はありません。確定した移動や入荷待ちの数は計算に入るので、二重に回したり発注したりしません。</p>';
   const inc=Object.keys(P.incomplete);
-  if(inc.length)h+='<div class="banner warn" style="margin:0">在庫数か発注点が未入力の品目は計算に入っていません：'+inc.map(sid=>esc(storeName(sid))+' '+P.incomplete[sid].length+'品目').join("、")+'</div>';
+  if(inc.length)h+='<div class="banner warn" style="margin:0">在庫数、または発注点と適正在庫の両方が未入力の品目は計算に入っていません：'+inc.map(sid=>esc(storeName(sid))+' '+P.incomplete[sid].length+'品目').join("、")+'</div>';
   h+='</div><div class="card"><h3>① 新しい提案</h3>';
   if(!P.moves.length&&!P.orders.length)h+='<p class="muted">今のところ、移動も発注も必要ありません。</p>';
   else{
