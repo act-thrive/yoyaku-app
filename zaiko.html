@@ -111,6 +111,7 @@ const isNum=v=>typeof v==="number"&&isFinite(v);
 const num=v=>v==null||v===""?null:Number(v);
 
 /* ---------- 基本 ---------- */
+function unitOf(it){return it&&it.unit?'<span class="note" style="margin-left:4px">（'+esc(it.unit)+'）</span>':'';}
 function storeName(id){return S.storeNames[id]||DEFAULT_NAMES[id]||id;}
 function cfg(id){return S.cfg[id]||{};}
 function canTransfer(id){return cfg(id).transfer!==false;}
@@ -234,6 +235,7 @@ function render(){
   const v=$("#view");
   if(!S.loaded){v.innerHTML='<p class="muted">読み込み中…</p>';return;}
   const ae=document.activeElement;const fk=ae&&ae.dataset&&ae.dataset.fk;
+  const keep={};v.querySelectorAll('input[data-fk]:not([data-act])').forEach(el=>{if(el.value)keep[el.dataset.fk]=el.value;});
   const r=route();
   if(r==="overview")v.innerHTML=viewOverview();
   else if(r==="orders")v.innerHTML=viewOrders();
@@ -241,6 +243,7 @@ function render(){
   else if(r==="history")v.innerHTML=viewHistory();
   else if(r==="items")v.innerHTML=viewItems();
   else v.innerHTML=viewStore(r);
+  for(const k in keep){const el=v.querySelector('input[data-fk="'+k+'"]:not([data-act])');if(el&&!el.value)el.value=keep[k];}
   if(fk){const el=v.querySelector('[data-fk="'+fk+'"]');if(el)el.focus();}
 }
 let rp=false;
@@ -266,7 +269,7 @@ function viewOverview(){
   for(const it of activeItems()){
     if(f==="need"&&!STORE_IDS.some(sid=>usedIn(it,sid)&&status(sid,it.id)==="need"))continue;
     if(it.category!==cat){cat=it.category;h+='<tr class="cat"><td colspan="5">'+esc(cat)+'</td></tr>';}
-    h+='<tr><td>'+esc(it.name)+'</td>';
+    h+='<tr><td>'+esc(it.name)+unitOf(it)+'</td>';
     for(const sid of STORE_IDS){
       if(!usedIn(it,sid)){h+='<td class="num"><span class="cell-q na">—</span></td>';continue;}
       const s=stk(sid,it.id),st=status(sid,it.id);
@@ -294,7 +297,7 @@ function viewStore(sid){
     const s=stk(sid,it.id);
     const inp=fd=>'<input type="number" inputmode="numeric" min="0" step="1" data-act="stock" data-sid="'+sid+'" data-iid="'+esc(it.id)+'" data-field="'+fd+'" data-fk="'+sid+it.id+fd+'" value="'+(isNum(s[fd])?s[fd]:"")+'" class="'+(fd==="qty"&&!isNum(s.qty)?"empty":"")+'"'+dis+'>';
     const coming=onOrder(sid,it.id)+resIn(sid,it.id);
-    h+='<tr class="'+(st==="need"?"need":"")+'"><td>'+esc(it.name)+'</td><td class="num">'+inp("qty")+(canEditStore(sid)&&isNum(s.qty)&&s.qty>0?'<div class="usebox" style="margin-top:4px"><button class="small" data-act="use" data-sid="'+sid+'" data-iid="'+esc(it.id)+'">使った</button></div>':'')+'</td><td class="num">'+inp("reorder_point")+(extraPct(sid)&&isNum(rpRaw(s))&&rpOf(sid,s)!==rpRaw(s)?'<div class="note">＋'+extraPct(sid)+'%で '+rpOf(sid,s)+'</div>':'')+'</td><td class="num">'+inp("target")+(extraPct(sid)&&(isNum(s.target)||isNum(s.reorder_point))&&targetOf(sid,s)!==s.target?'<div class="note">＋'+extraPct(sid)+'%で '+targetOf(sid,s)+'</div>':'')+'</td><td class="num">'+pill(st)+(coming?'<div class="note">届く予定 '+coming+'</div>':'')+'</td>'+
+    h+='<tr class="'+(st==="need"?"need":"")+'"><td>'+esc(it.name)+unitOf(it)+'</td><td class="num">'+inp("qty")+(canEditStore(sid)&&isNum(s.qty)&&s.qty>0?'<div class="usebox" style="margin-top:4px"><button class="small" data-act="use" data-sid="'+sid+'" data-iid="'+esc(it.id)+'">使った</button></div>':'')+'</td><td class="num">'+inp("reorder_point")+(extraPct(sid)&&isNum(rpRaw(s))&&rpOf(sid,s)!==rpRaw(s)?'<div class="note">＋'+extraPct(sid)+'%で '+rpOf(sid,s)+'</div>':'')+'</td><td class="num">'+inp("target")+(extraPct(sid)&&(isNum(s.target)||isNum(s.reorder_point))&&targetOf(sid,s)!==s.target?'<div class="note">＋'+extraPct(sid)+'%で '+targetOf(sid,s)+'</div>':'')+'</td><td class="num">'+pill(st)+(coming?'<div class="note">届く予定 '+coming+'</div>':'')+'</td>'+
       '<td class="num hide-sm note">'+(S.usageReady?usage30(sid,it.id):'')+'</td><td class="hide-sm"><input type="text" style="width:150px" data-act="stock" data-sid="'+sid+'" data-iid="'+esc(it.id)+'" data-field="memo" data-fk="'+sid+it.id+'memo" value="'+esc(s.memo||"")+'"'+dis+'></td><td class="hide-sm num note">'+esc(fmtDate(s.updated_at))+'</td></tr>';
     rows++;
   }
@@ -342,7 +345,7 @@ function viewOrders(){
     if(!P.orders.length)h+='<p class="muted">なし（移動だけで足ります）</p>';
     else{
       h+='<div class="tablewrap"><table><thead><tr><th>備品名</th>'+STORE_IDS.map(id=>'<th class="num">'+esc(storeName(id))+'着</th>').join("")+'<th class="num">合計</th></tr></thead><tbody>';
-      for(const o of P.orders)h+='<tr><td>'+esc(o.it.name)+'</td>'+STORE_IDS.map(sid=>{const v=o.via[sid];return '<td class="num">'+(o.per[sid]?'<span class="cell-q need">'+o.per[sid]+'</span>'+(v?'<div class="note">'+Object.keys(v).map(x=>'うち'+esc(storeName(x))+'分 '+v[x]).join("<br>")+'</div>':''):'<span class="cell-q na">—</span>')+'</td>';}).join("")+'<td class="num"><b>'+o.total+'</b></td></tr>';
+      for(const o of P.orders)h+='<tr><td>'+esc(o.it.name)+unitOf(o.it)+'</td>'+STORE_IDS.map(sid=>{const v=o.via[sid];return '<td class="num">'+(o.per[sid]?'<span class="cell-q need">'+o.per[sid]+'</span>'+(v?'<div class="note">'+Object.keys(v).map(x=>'うち'+esc(storeName(x))+'分 '+v[x]).join("<br>")+'</div>':''):'<span class="cell-q na">—</span>')+'</td>';}).join("")+'<td class="num"><b>'+o.total+'</b></td></tr>';
       h+='</tbody></table></div>';
     }
     h+='<div class="row" style="margin-top:12px"><button class="primary" data-act="confirmplan">この内容で確定する</button><span class="note">移動は②移動待ちに、発注は③入荷待ちに入ります。業者への発注は、③の「発注リストをコピー」から行ってください。</span></div>';
@@ -407,12 +410,13 @@ function viewItems(){
       '<label class="opt"><input type="checkbox" data-act="cfg" data-sid="'+sid+'" data-field="no_direct"'+(noDirect(sid)?" checked":"")+'>直接発注しない'+(noDirect(sid)?'→ 届く店舗 <select data-act="cfgvia" data-sid="'+sid+'">'+STORE_IDS.filter(x=>x!==sid&&!noDirect(x)).map(x=>'<option value="'+x+'"'+(orderVia(sid)===x?" selected":"")+'>'+esc(storeName(x))+'</option>').join("")+'</select>':'')+'</label></div>';
   }
   h+='</div><p class="note">店舗名は予約表の店舗名を使っています。「多めに持つ」は、その店舗の発注点と適正在庫を割合だけ上乗せして計算します。「直接発注しない」店舗の不足分は、届く店舗の発注に含めて、入荷後に自動で移動待ちに入ります。</p></div>';
-  h+='<div class="card"><h2>品目を追加</h2><div class="row"><input type="text" id="newname" placeholder="備品名（例：マスク）" style="flex:1;min-width:180px" data-fk="newname"><select id="newcat">'+CATS.map(c=>'<option>'+c+'</option>').join("")+'</select></div>'+
+  h+='<div class="card"><h2>品目を追加</h2><div class="row"><input type="text" id="newname" placeholder="備品名（例：マスク）" style="flex:1;min-width:180px" data-fk="newname"><input type="text" id="newunit" placeholder="単位（例：箱）" style="width:9em" data-fk="newunit"><select id="newcat">'+CATS.map(c=>'<option>'+c+'</option>').join("")+'</select></div>'+
     '<div class="row" style="margin-top:8px"><span class="muted">使う店舗：</span><div class="storechecks">'+STORE_IDS.map(sid=>'<label><input type="checkbox" class="newstore" value="'+sid+'" checked>'+esc(storeName(sid))+'</label>').join("")+'</div><button class="primary" data-act="additem">追加</button></div></div>';
   const list=activeItems();
-  h+='<div class="card"><h2>品目一覧（'+list.length+'）</h2><div class="tablewrap"><table><thead><tr><th>備品名</th><th>区分</th><th>使う店舗</th><th class="num">並び</th><th></th></tr></thead><tbody>';
+  h+='<div class="card"><h2>品目一覧（'+list.length+'）</h2><div class="tablewrap"><table><thead><tr><th>備品名</th><th>単位</th><th>区分</th><th>使う店舗</th><th class="num">並び</th><th></th></tr></thead><tbody>';
   list.forEach((it,i)=>{
     h+='<tr><td><input type="text" data-act="itemname" data-iid="'+esc(it.id)+'" data-fk="in'+esc(it.id)+'" value="'+esc(it.name)+'" style="width:100%;min-width:180px"></td>'+
+      '<td><input type="text" data-act="itemunit" data-iid="'+esc(it.id)+'" data-fk="iu'+esc(it.id)+'" value="'+esc(it.unit||"")+'" placeholder="例：箱" style="width:9em"></td>'+
       '<td><select data-act="itemcat" data-iid="'+esc(it.id)+'">'+CATS.map(c=>'<option'+(c===it.category?" selected":"")+'>'+c+'</option>').join("")+'</select></td>'+
       '<td><div class="storechecks">'+STORE_IDS.map(sid=>'<label><input type="checkbox" data-act="itemstore" data-iid="'+esc(it.id)+'" value="'+sid+'"'+(usedIn(it,sid)?" checked":"")+'>'+esc(storeName(sid))+'</label>').join("")+'</div></td>'+
       '<td class="num" style="white-space:nowrap"><button class="small" data-act="sort" data-iid="'+esc(it.id)+'" data-dir="-1"'+(i===0?" disabled":"")+'>↑</button> <button class="small" data-act="sort" data-iid="'+esc(it.id)+'" data-dir="1"'+(i===list.length-1?" disabled":"")+'>↓</button></td>'+
@@ -464,7 +468,7 @@ document.addEventListener("click",async e=>{
     const cat=$("#newcat").value;const list=activeItems();const same=list.filter(i=>i.category===cat);
     let sort=list.reduce((m,i)=>Math.max(m,i.sort||0),0)+1;
     if(same.length){const last=same[same.length-1].sort||0;const next=list.find(i=>(i.sort||0)>last);sort=next?(last+(next.sort||0))/2:last+1;}
-    await q(sb.from("inv_items").insert({name,category:cat,stores,sort}));await loadItems();toast("「"+name+"」を追加しました");render();
+    const unit=($("#newunit").value||"").trim()||null;await q(sb.from("inv_items").insert({name,category:cat,stores,sort,unit}));await loadItems();toast("「"+name+"」を追加しました");render();
   });
   if(act==="delitem")return guarded(b,async()=>{await q(sb.from("inv_items").update({deleted:true,updated_at:new Date().toISOString()}).eq("id",b.dataset.iid));await loadItems();toast("削除しました");render();});
   if(act==="sort")return guarded(b,async()=>{
@@ -490,9 +494,10 @@ document.addEventListener("change",async e=>{
     try{await q(sb.from("inv_store_settings").upsert(Object.assign({store_id:sid,updated_at:new Date().toISOString()},patch),{onConflict:"store_id"}));await loadCfg();toast("保存しました");render();}catch(err){toast("保存できませんでした："+errText(err));}
     return;
   }
-  if(act==="itemname"||act==="itemcat"||act==="itemstore"){
+  if(act==="itemname"||act==="itemcat"||act==="itemstore"||act==="itemunit"){
     const it=S.items.find(i=>i.id===el.dataset.iid);if(!it)return;let patch;
     if(act==="itemname"){const v=el.value.trim();if(!v||v===it.name)return;patch={name:v};}
+    else if(act==="itemunit"){const v=el.value.trim()||null;if(v===(it.unit||null))return;patch={unit:v};}
     else if(act==="itemcat")patch={category:el.value};
     else patch={stores:[...document.querySelectorAll('input[data-act="itemstore"][data-iid="'+CSS.escape(it.id)+'"]')].filter(x=>x.checked).map(x=>x.value)};
     try{await q(sb.from("inv_items").update(Object.assign(patch,{updated_at:new Date().toISOString()})).eq("id",it.id));await loadItems();toast("保存しました");scheduleRender();}catch(err){toast("保存できませんでした："+errText(err));}
