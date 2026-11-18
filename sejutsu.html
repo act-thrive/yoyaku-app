@@ -104,8 +104,8 @@ function kanriNorm(s){const t=String(s||'').normalize('NFKC').replace(/\D/g,'');
 
 /* ---------- データ ---------- */
 async function loadDrafts(){
-  const rows=await q(sb.from('sejutsu_drafts').select('id,patient_id,kind,body,source,created_by,created_at,done,done_at,done_by').eq('store_id',S.store).order('created_at',{ascending:false}).limit(2000));
-  S.drafts=rows||[];
+  const rows=await q(sb.from('sejutsu_drafts').select('id,patient_id,kind,body,source,created_by,created_at,updated_at,updated_by,done,done_at,done_by').eq('store_id',S.store).order('created_at',{ascending:false}).limit(2000));
+  S.drafts=(rows||[]).map(d=>Object.assign(d,{last:d.updated_at||d.created_at})).sort((a,b)=>a.last<b.last?1:-1);
   const need=[...new Set(S.drafts.map(d=>d.patient_id))].filter(id=>!S.pats[id]);
   for(let i=0;i<need.length;i+=100){
     const ps=await q(sb.from('patients').select('id,kanri_no,name,kana').in('id',need.slice(i,i+100)));
@@ -124,7 +124,7 @@ async function findByName(name){
 }
 function patientGroups(){
   const g={};
-  S.drafts.forEach(d=>{(g[d.patient_id]=g[d.patient_id]||{pid:d.patient_id,list:[],todo:0,last:d.created_at}).list.push(d);if(!d.done)g[d.patient_id].todo++;});
+  S.drafts.forEach(d=>{(g[d.patient_id]=g[d.patient_id]||{pid:d.patient_id,list:[],todo:0,last:d.last}).list.push(d);if(!d.done)g[d.patient_id].todo++;});
   return Object.values(g).sort((a,b)=>(b.todo?1:0)-(a.todo?1:0)||(a.last<b.last?1:-1));
 }
 
@@ -159,7 +159,7 @@ function detailView(){
   if(!list.length)h+='<div class="empty">記載案はありません</div>';
   list.forEach((d,i)=>{
     const collapsed=d.done&&!S.open[d.id];
-    h+='<div class="draft'+(d.done?' isdone':'')+(collapsed?' collapsed':'')+'"><div class="hd"><span class="pill kind">'+esc(KIND[d.kind]||d.kind)+'</span>'+(d.done?'<span class="pill ok">記入済み</span>':'<span class="pill todo">未記入</span>')+(i===0?'<span class="pill src">最新</span>':'')+'<span class="dt">'+esc(fmt(d.created_at))+' 登録（'+(d.source==='claude'?'Claude':esc(d.created_by||'スタッフ'))+'）</span></div>';
+    h+='<div class="draft'+(d.done?' isdone':'')+(collapsed?' collapsed':'')+'"><div class="hd"><span class="pill kind">'+esc(KIND[d.kind]||d.kind)+'</span>'+(d.done?'<span class="pill ok">記入済み</span>':'<span class="pill todo">未記入</span>')+(i===0?'<span class="pill src">最新</span>':'')+'<span class="dt">'+(d.updated_at?esc(fmt(d.updated_at))+' 上書き（'+esc(d.updated_by||'')+'）':esc(fmt(d.created_at))+' 登録（'+(d.source==='claude'?'Claude':esc(d.created_by||'スタッフ'))+'）')+'</span></div>';
     h+='<pre>'+esc(d.body)+'</pre>';
     h+='<div class="ft"><button class="small" data-act="copy" data-id="'+esc(d.id)+'">コピー</button><button class="small fold" data-act="unfold" data-id="'+esc(d.id)+'">全文を表示</button>'+(d.done?'<button class="small" data-act="undone" data-id="'+esc(d.id)+'">未記入に戻す</button>':'<button class="small done" data-act="done" data-id="'+esc(d.id)+'">✓ 記入済みにする</button>')+(S.admin?'<button class="small danger" data-act="del" data-id="'+esc(d.id)+'">削除</button>':'')+(d.done&&d.done_at?'<span class="by">'+esc(fmt(d.done_at))+' 記入済み'+(d.done_by?'（'+esc(d.done_by)+'）':'')+'</span>':'')+'</div></div>';
   });
@@ -170,7 +170,7 @@ function addView(){
   return '<div class="row" style="margin-bottom:12px"><button data-act="cancel">← 戻る</button></div><div class="card"><h2>記載案を貼り付けて登録</h2>'
   +'<label class="f">記載案（LINE用のテキストをそのまま貼り付け）</label><textarea id="body" placeholder="【山田 太郎 様】&#10;①…&#10;■表面&#10;…"></textarea>'
   +'<label class="f">管理番号</label><div class="row"><input type="text" id="kanri" inputmode="numeric" style="width:140px" value="'+esc(p?p.kanri_no||'':'')+'" placeholder="例：320"><span class="muted">貼り付けた文の名前から自動で探します</span></div><div class="match" id="match">'+(p?'<span class="ok">✓ '+esc(p.name)+' 様</span>':'')+'</div>'
-  +'<label class="f">種類</label><select id="kind"><option value="both">表と裏</option><option value="omote">表面</option><option value="ura">裏面</option></select>'
+  +'<label class="f">種類（自動判定）</label><select id="kind" disabled><option value="both">表と裏</option><option value="omote">表面</option><option value="ura">裏面</option></select><p class="muted" style="margin:8px 0 0">同じ患者さんで、傷病名・負傷日・初検日が同じ記載案があれば上書きします。表面だけ・裏面だけを貼った場合は、もう片方は前の内容を残します。</p>'
   +'<div class="row" style="margin-top:18px"><button class="primary" id="save" data-act="save">登録する</button></div></div>';
 }
 let matchP=null;
@@ -214,7 +214,7 @@ document.addEventListener('click',async e=>{
     if(!p&&$('#kanri').value){try{p=await findPatient($('#kanri').value);}catch(_){}}
     if(!p){toast('患者さんが決まっていません。管理番号を入れてください');return;}
     S.busy=true;b.disabled=true;
-    try{await q(sb.from('sejutsu_drafts').insert({store_id:S.store,patient_id:p.id,kind:$('#kind').value,body,source:'staff',created_by:S.user.email||null}));await loadDrafts();S.pid=p.id;S.view='detail';toast('登録しました');}
+    try{const r=await q(sb.rpc('sejutsu_save',{p_patient:p.id,p_body:body,p_source:'staff'}));await loadDrafts();S.pid=p.id;S.view='detail';toast(r&&r.merged?(r.changed?'同じ負傷の記載案に上書きしました（未記入に戻りました）':'内容が同じため変更はありません'):'登録しました');}
     catch(err){toast('登録できませんでした：'+errText(err));b.disabled=false;}
     S.busy=false;render();window.scrollTo(0,0);return;
   }
