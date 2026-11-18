@@ -54,6 +54,11 @@ button:disabled{opacity:.5;cursor:default}
 .pill.chkok{background:#fff3e0;color:#b45f06;border:none;cursor:pointer;font-family:inherit}
 .chkbox{margin:0;padding:10px 12px 12px;background:#fff8ee;border-bottom:1px solid var(--line)}
 .chkbox ol{margin:0 0 10px;padding-left:20px}.chkbox li{margin:4px 0;font-size:14px;line-height:1.6}
+.gyo{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.gyo button{min-width:46px;padding:7px 10px;font-size:15px;border-radius:8px}
+.gyo button.on{background:var(--navy2);color:#fff}
+.gyo button small{font-size:11px;margin-left:3px;opacity:.75}
+.gyo button:disabled{opacity:.35}
 .pill.src{background:#eef1f4;color:var(--muted);font-weight:500}
 .draft{border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:12px}
 .draft.isdone{background:#fafcfa}
@@ -95,7 +100,7 @@ const ENABLED_STORES=['s4'];
 const STORE_NAMES={s1:'阪急茨木院',s2:'朝潮橋院',s3:'河内山本院',s4:'JR茨木院'};
 const KIND={omote:'表面',ura:'裏面',both:'表と裏'};
 let sb=null;
-const S={chk:{},user:null,admin:false,store:null,drafts:[],pats:{},q:'',filter:'todo',view:'list',pid:null,open:{},busy:false};
+const S={gy:'全',chk:{},user:null,admin:false,store:null,drafts:[],pats:{},q:'',filter:'todo',view:'list',pid:null,open:{},busy:false};
 const $=s=>document.querySelector(s);
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2600);}
@@ -126,6 +131,8 @@ async function findByName(name){
   const rows=await q(sb.from('patients').select('id,kanri_no,name,kana').eq('store_id',S.store).limit(5000));
   return (rows||[]).filter(p=>norm(p.name)===n);
 }
+const GYO=[['あ','あいうえおぁぃぅぇぉゔ'],['か','かきくけこ'],['さ','さしすせそ'],['た','たちつてとっ'],['な','なにぬねの'],['は','はひふへほ'],['ま','まみむめも'],['や','やゆよゃゅょ'],['ら','らりるれろ'],['わ','わをん']];
+function gyoOf(p){const t=String((p&&(p.kana||p.name))||'').normalize('NFKC').replace(/[\u30a1-\u30f6]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));const c=t.normalize('NFD')[0];if(!c)return '他';for(const [g,cs] of GYO)if(cs.includes(c))return g;return '他';}
 function needChk(d){return Array.isArray(d.checks)&&d.checks.length>0&&!d.checks_done;}
 function patientGroups(){
   const g={};
@@ -145,15 +152,22 @@ function listHtml(){
   const qq=norm(S.q),qk=kanriNorm(S.q);
   let gs=patientGroups();
   if(S.filter==='todo')gs=gs.filter(g=>g.todo>0);
+  if(S.gy!=='全'){gs=gs.filter(g=>gyoOf(S.pats[g.pid])===S.gy);gs.sort((a,b)=>String((S.pats[a.pid]||{}).kana||'').localeCompare(String((S.pats[b.pid]||{}).kana||''),'ja'));}
   if(qq)gs=gs.filter(g=>{const p=S.pats[g.pid]||{};return norm(p.name).includes(qq)||norm(p.kana).includes(qq)||(qk&&String(p.kanri_no)===qk);});
   if(!gs.length)return '<div class="empty">'+(S.drafts.length?'該当する記載案はありません':'まだ記載案がありません。<br>「＋ 貼り付けて登録」から追加できます。')+'</div>';
   return '<div class="plist">'+gs.map(g=>{const p=S.pats[g.pid]||{name:'（患者情報なし）'};
     return '<button class="pitem" data-act="open" data-pid="'+esc(g.pid)+'"><div><div class="nm">'+esc(p.name)+' 様</div><div class="kn">'+esc(p.kana||'')+(p.kanri_no?'　No.'+esc(p.kanri_no):'')+'</div></div><div class="rt">'+(g.chk?'<span class="pill chk">要確認</span>':'')+(g.todo?'<span class="pill todo">未記入 '+g.todo+'</span>':'<span class="pill ok">記入済み</span>')+'<span class="muted">更新 '+esc(fmt(g.last))+'</span></div></button>';}).join('')+'</div>';
 }
 function renderList(){const el=$('#plist');if(el)el.innerHTML=listHtml();}
+function gyoBar(){
+  let gs=patientGroups();if(S.filter==='todo')gs=gs.filter(g=>g.todo>0);
+  const cnt={};gs.forEach(g=>{const k=gyoOf(S.pats[g.pid]);cnt[k]=(cnt[k]||0)+1;});
+  const keys=['全'].concat(GYO.map(x=>x[0]));if(cnt['他'])keys.push('他');
+  return '<div class="gyo">'+keys.map(k=>{const n=k==='全'?gs.length:(cnt[k]||0);return '<button data-act="gyo" data-g="'+k+'" class="'+(S.gy===k?'on':'')+'"'+(n||k==='全'?'':' disabled')+'>'+(k==='全'?'すべて':k)+(n?'<small>'+n+'</small>':'')+'</button>';}).join('')+'</div>';
+}
 function listView(){
   const todoN=patientGroups().filter(g=>g.todo).length;
-  return '<div class="bar"><input type="search" id="search" placeholder="名前・ふりがな・管理番号で検索" value="'+esc(S.q)+'" autocomplete="off"><div class="seg"><button data-act="filter" data-f="todo" class="'+(S.filter==='todo'?'on':'')+'">未記入あり（'+todoN+'）</button><button data-act="filter" data-f="all" class="'+(S.filter==='all'?'on':'')+'">すべて</button></div><button class="primary" data-act="add">＋ 貼り付けて登録</button></div><div id="plist">'+listHtml()+'</div>';
+  return '<div class="bar"><input type="search" id="search" placeholder="名前・ふりがな・管理番号で検索" value="'+esc(S.q)+'" autocomplete="off"><div class="seg"><button data-act="filter" data-f="todo" class="'+(S.filter==='todo'?'on':'')+'">未記入あり（'+todoN+'）</button><button data-act="filter" data-f="all" class="'+(S.filter==='all'?'on':'')+'">すべて</button></div><button class="primary" data-act="add">＋ 貼り付けて登録</button></div>'+gyoBar()+'<div id="plist">'+listHtml()+'</div>';
 }
 function detailView(){
   const p=S.pats[S.pid]||{name:'（患者情報なし）'};
@@ -193,6 +207,7 @@ function bindAdd(){
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b)return;const act=b.dataset.act;
   if(act==='logout'){await sb.auth.signOut();location.reload();return;}
+  if(act==='gyo'){S.gy=b.dataset.g;render();return;}
   if(act==='filter'){S.filter=b.dataset.f;render();return;}
   if(act==='open'){S.pid=b.dataset.pid;S.view='detail';render();window.scrollTo(0,0);return;}
   if(act==='back'){S.view='list';S.pid=null;render();return;}
