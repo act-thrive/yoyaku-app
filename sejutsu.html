@@ -50,6 +50,10 @@ button:disabled{opacity:.5;cursor:default}
 .pill.todo{background:var(--red);color:#fff}
 .pill.ok{background:var(--greenbg);color:var(--green)}
 .pill.kind{background:var(--blue);color:var(--navy)}
+.pill.chk{background:#f57c00;color:#fff;border:none;cursor:pointer;font-family:inherit}
+.pill.chkok{background:#fff3e0;color:#b45f06;border:none;cursor:pointer;font-family:inherit}
+.chkbox{margin:0;padding:10px 12px 12px;background:#fff8ee;border-bottom:1px solid var(--line)}
+.chkbox ol{margin:0 0 10px;padding-left:20px}.chkbox li{margin:4px 0;font-size:14px;line-height:1.6}
 .pill.src{background:#eef1f4;color:var(--muted);font-weight:500}
 .draft{border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:12px}
 .draft.isdone{background:#fafcfa}
@@ -91,7 +95,7 @@ const ENABLED_STORES=['s4'];
 const STORE_NAMES={s1:'阪急茨木院',s2:'朝潮橋院',s3:'河内山本院',s4:'JR茨木院'};
 const KIND={omote:'表面',ura:'裏面',both:'表と裏'};
 let sb=null;
-const S={user:null,admin:false,store:null,drafts:[],pats:{},q:'',filter:'todo',view:'list',pid:null,open:{},busy:false};
+const S={chk:{},user:null,admin:false,store:null,drafts:[],pats:{},q:'',filter:'todo',view:'list',pid:null,open:{},busy:false};
 const $=s=>document.querySelector(s);
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2600);}
@@ -104,7 +108,7 @@ function kanriNorm(s){const t=String(s||'').normalize('NFKC').replace(/\D/g,'');
 
 /* ---------- データ ---------- */
 async function loadDrafts(){
-  const rows=await q(sb.from('sejutsu_drafts').select('id,patient_id,kind,body,source,created_by,created_at,updated_at,updated_by,done,done_at,done_by').eq('store_id',S.store).order('created_at',{ascending:false}).limit(2000));
+  const rows=await q(sb.from('sejutsu_drafts').select('id,patient_id,kind,body,source,created_by,created_at,updated_at,updated_by,done,done_at,done_by,checks,checks_done,checks_done_at,checks_done_by').eq('store_id',S.store).order('created_at',{ascending:false}).limit(2000));
   S.drafts=(rows||[]).map(d=>Object.assign(d,{last:d.updated_at||d.created_at})).sort((a,b)=>a.last<b.last?1:-1);
   const need=[...new Set(S.drafts.map(d=>d.patient_id))].filter(id=>!S.pats[id]);
   for(let i=0;i<need.length;i+=100){
@@ -122,9 +126,10 @@ async function findByName(name){
   const rows=await q(sb.from('patients').select('id,kanri_no,name,kana').eq('store_id',S.store).limit(5000));
   return (rows||[]).filter(p=>norm(p.name)===n);
 }
+function needChk(d){return Array.isArray(d.checks)&&d.checks.length>0&&!d.checks_done;}
 function patientGroups(){
   const g={};
-  S.drafts.forEach(d=>{(g[d.patient_id]=g[d.patient_id]||{pid:d.patient_id,list:[],todo:0,last:d.last}).list.push(d);if(!d.done)g[d.patient_id].todo++;});
+  S.drafts.forEach(d=>{(g[d.patient_id]=g[d.patient_id]||{pid:d.patient_id,list:[],todo:0,last:d.last}).list.push(d);if(!d.done)g[d.patient_id].todo++;if(needChk(d))g[d.patient_id].chk=(g[d.patient_id].chk||0)+1;});
   return Object.values(g).sort((a,b)=>(b.todo?1:0)-(a.todo?1:0)||(a.last<b.last?1:-1));
 }
 
@@ -143,7 +148,7 @@ function listHtml(){
   if(qq)gs=gs.filter(g=>{const p=S.pats[g.pid]||{};return norm(p.name).includes(qq)||norm(p.kana).includes(qq)||(qk&&String(p.kanri_no)===qk);});
   if(!gs.length)return '<div class="empty">'+(S.drafts.length?'該当する記載案はありません':'まだ記載案がありません。<br>「＋ 貼り付けて登録」から追加できます。')+'</div>';
   return '<div class="plist">'+gs.map(g=>{const p=S.pats[g.pid]||{name:'（患者情報なし）'};
-    return '<button class="pitem" data-act="open" data-pid="'+esc(g.pid)+'"><div><div class="nm">'+esc(p.name)+' 様</div><div class="kn">'+esc(p.kana||'')+(p.kanri_no?'　No.'+esc(p.kanri_no):'')+'</div></div><div class="rt">'+(g.todo?'<span class="pill todo">未記入 '+g.todo+'</span>':'<span class="pill ok">記入済み</span>')+'<span class="muted">更新 '+esc(fmt(g.last))+'</span></div></button>';}).join('')+'</div>';
+    return '<button class="pitem" data-act="open" data-pid="'+esc(g.pid)+'"><div><div class="nm">'+esc(p.name)+' 様</div><div class="kn">'+esc(p.kana||'')+(p.kanri_no?'　No.'+esc(p.kanri_no):'')+'</div></div><div class="rt">'+(g.chk?'<span class="pill chk">要確認</span>':'')+(g.todo?'<span class="pill todo">未記入 '+g.todo+'</span>':'<span class="pill ok">記入済み</span>')+'<span class="muted">更新 '+esc(fmt(g.last))+'</span></div></button>';}).join('')+'</div>';
 }
 function renderList(){const el=$('#plist');if(el)el.innerHTML=listHtml();}
 function listView(){
@@ -159,7 +164,8 @@ function detailView(){
   if(!list.length)h+='<div class="empty">記載案はありません</div>';
   list.forEach((d,i)=>{
     const collapsed=d.done&&!S.open[d.id];
-    h+='<div class="draft'+(d.done?' isdone':'')+(collapsed?' collapsed':'')+'"><div class="hd"><span class="pill kind">'+esc(KIND[d.kind]||d.kind)+'</span>'+(d.done?'<span class="pill ok">記入済み</span>':'<span class="pill todo">未記入</span>')+(i===0?'<span class="pill src">最新</span>':'')+'<span class="dt">'+(d.updated_at?esc(fmt(d.updated_at))+' 上書き（'+esc(d.updated_by||'')+'）':esc(fmt(d.created_at))+' 登録（'+(d.source==='claude'?'Claude':esc(d.created_by||'スタッフ'))+'）')+'</span></div>';
+    h+='<div class="draft'+(d.done?' isdone':'')+(collapsed?' collapsed':'')+'"><div class="hd"><span class="pill kind">'+esc(KIND[d.kind]||d.kind)+'</span>'+(d.done?'<span class="pill ok">記入済み</span>':'<span class="pill todo">未記入</span>')+(d.checks&&d.checks.length?'<button class="pill '+(d.checks_done?'chkok':'chk')+'" data-act="chk" data-id="'+esc(d.id)+'">'+(d.checks_done?'✓ 確認済み':'⚠ 要確認 '+d.checks.length)+'</button>':'')+(i===0?'<span class="pill src">最新</span>':'')+'<span class="dt">'+(d.updated_at?esc(fmt(d.updated_at))+' 上書き（'+esc(d.updated_by||'')+'）':esc(fmt(d.created_at))+' 登録（'+(d.source==='claude'?'Claude':esc(d.created_by||'スタッフ'))+'）')+'</span></div>';
+    if(d.checks&&d.checks.length&&S.chk[d.id])h+='<div class="chkbox"><b style="font-size:14px">確認してほしいこと</b><ol>'+d.checks.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ol>'+(d.checks_done?'<div class="row"><button class="small" data-act="chkundo" data-id="'+esc(d.id)+'">要確認に戻す</button><span class="muted">'+esc(fmt(d.checks_done_at))+' 確認済み'+(d.checks_done_by?'（'+esc(d.checks_done_by)+'）':'')+'</span></div>':'<button class="small done" data-act="chkdone" data-id="'+esc(d.id)+'">✓ 確認済みにする</button>')+'</div>';
     h+='<pre>'+esc(d.body)+'</pre>';
     h+='<div class="ft"><button class="small" data-act="copy" data-id="'+esc(d.id)+'">コピー</button><button class="small fold" data-act="unfold" data-id="'+esc(d.id)+'">全文を表示</button>'+(d.done?'<button class="small" data-act="undone" data-id="'+esc(d.id)+'">未記入に戻す</button>':'<button class="small done" data-act="done" data-id="'+esc(d.id)+'">✓ 記入済みにする</button>')+(S.admin?'<button class="small danger" data-act="del" data-id="'+esc(d.id)+'">削除</button>':'')+(d.done&&d.done_at?'<span class="by">'+esc(fmt(d.done_at))+' 記入済み'+(d.done_by?'（'+esc(d.done_by)+'）':'')+'</span>':'')+'</div></div>';
   });
@@ -192,6 +198,7 @@ document.addEventListener('click',async e=>{
   if(act==='back'){S.view='list';S.pid=null;render();return;}
   if(act==='add'){S.pid=b.dataset.pid||null;S.view='add';render();window.scrollTo(0,0);return;}
   if(act==='cancel'){S.view=S.pid?'detail':'list';render();return;}
+  if(act==='chk'){S.chk[b.dataset.id]=!S.chk[b.dataset.id];render();return;}
   if(act==='unfold'){S.open[b.dataset.id]=1;render();return;}
   const d=S.drafts.find(x=>x.id===b.dataset.id);
   if(act==='copy'&&d){try{await navigator.clipboard.writeText(d.body);toast('コピーしました');}catch(_){toast('コピーできませんでした');}return;}
@@ -199,6 +206,12 @@ document.addEventListener('click',async e=>{
   if((act==='done'||act==='undone')&&d){
     S.busy=true;b.disabled=true;const on=act==='done';
     try{await q(sb.from('sejutsu_drafts').update({done:on,done_at:on?new Date().toISOString():null,done_by:on?(S.user.email||null):null}).eq('id',d.id));Object.assign(d,{done:on,done_at:on?new Date().toISOString():null,done_by:on?S.user.email:null});toast(on?'記入済みにしました':'未記入に戻しました');}
+    catch(err){toast('保存できませんでした：'+errText(err));}
+    S.busy=false;render();return;
+  }
+  if((act==='chkdone'||act==='chkundo')&&d){
+    S.busy=true;b.disabled=true;const on=act==='chkdone';const at=on?new Date().toISOString():null;
+    try{await q(sb.from('sejutsu_drafts').update({checks_done:on,checks_done_at:at,checks_done_by:on?(S.user.email||null):null}).eq('id',d.id));Object.assign(d,{checks_done:on,checks_done_at:at,checks_done_by:on?S.user.email:null});toast(on?'確認済みにしました':'要確認に戻しました');}
     catch(err){toast('保存できませんでした：'+errText(err));}
     S.busy=false;render();return;
   }
