@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-title" content="施術録">
+<title>施術録 記載案</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.56.0/dist/umd/supabase.min.js"></script>
+<style>
+:root{--navy:#1a3550;--navy2:#264a6e;--bg:#f4f6f9;--card:#fff;--line:#dde3ea;--text:#1d2733;--muted:#6b7785;--red:#c62828;--redbg:#fdecec;--green:#2e7d32;--greenbg:#e9f5ea;--yellow:#fff8dc;--blue:#e8f0f8}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Noto Sans JP",system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:15px}
+header{background:var(--navy);color:#fff;padding:12px 18px}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.top h1{margin:0;font-size:18px;font-weight:700;letter-spacing:.04em}
+.top .who{margin-left:auto;font-size:13px;color:#c8d6e5;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.top a,.top button.link{color:#fff;font-size:13px;background:none;border:1px solid #6d88a6;border-radius:6px;padding:4px 10px;text-decoration:none;cursor:pointer}
+main{max-width:900px;margin:0 auto;padding:16px}
+.banner{padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:14px}
+.banner.warn{background:var(--yellow);border:1px solid #ecd98a}
+.banner.err{background:var(--redbg);border:1px solid #f1b5b5;color:var(--red)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+h2{font-size:17px;margin:4px 0 12px}
+.muted{color:var(--muted);font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.bar input[type=search]{flex:1;min-width:180px}
+input,select,textarea{font:inherit;padding:7px 9px;border:1px solid #c5ced8;border-radius:6px;background:#fff;color:var(--text)}
+textarea{width:100%;min-height:280px;font-size:13px;line-height:1.6}
+button{font:inherit;font-size:14px;padding:7px 14px;border-radius:7px;border:1px solid var(--navy2);background:#fff;color:var(--navy2);cursor:pointer;font-weight:500}
+button.primary{background:var(--navy2);color:#fff}
+button.danger{border-color:var(--red);color:var(--red)}
+button.done{border-color:var(--green);color:var(--green)}
+button.small{padding:4px 10px;font-size:13px}
+button:disabled{opacity:.5;cursor:default}
+.seg{display:inline-flex;border:1px solid var(--navy2);border-radius:7px;overflow:hidden}
+.seg button{border:none;border-radius:0;padding:6px 12px;font-size:13px}
+.seg button.on{background:var(--navy2);color:#fff}
+.plist{display:flex;flex-direction:column;gap:8px}
+.pitem{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;text-align:left;width:100%;color:inherit;font-weight:400}
+.pitem:hover{border-color:var(--navy2)}
+.pitem .nm{font-weight:700;font-size:16px}
+.pitem .kn{font-size:12px;color:var(--muted)}
+.pitem .rt{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.pill.todo{background:var(--red);color:#fff}
+.pill.ok{background:var(--greenbg);color:var(--green)}
+.pill.kind{background:var(--blue);color:var(--navy)}
+.pill.src{background:#eef1f4;color:var(--muted);font-weight:500}
+.draft{border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:12px}
+.draft.isdone{background:#fafcfa}
+.draft .hd{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line)}
+.draft .hd .dt{font-size:13px;color:var(--muted)}
+.draft pre{margin:0;padding:12px;white-space:pre-wrap;word-break:break-word;font-family:inherit;font-size:14px;line-height:1.7}
+.draft .ft{display:flex;gap:8px;flex-wrap:wrap;padding:10px 12px;border-top:1px solid var(--line);align-items:center}
+.draft .ft .by{font-size:12px;color:var(--muted);margin-left:auto}
+.fold{display:none}
+.draft.collapsed pre{max-height:120px;overflow:hidden;position:relative}
+.draft.collapsed pre::after{content:"";position:absolute;left:0;right:0;bottom:0;height:40px;background:linear-gradient(transparent,#fff)}
+.draft.collapsed .fold{display:inline-block}
+label.f{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+.match{font-size:14px;margin-top:6px}
+.match.ok{color:var(--green)}.match.ng{color:var(--red)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .3s;z-index:10;max-width:90vw}
+.toast.show{opacity:1}
+.login{max-width:360px;margin:60px auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:24px}
+.login h2{text-align:center}
+.login label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+.login input{width:100%}
+.login button{width:100%;margin-top:18px;padding:10px}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+@media (max-width:600px){main{padding:10px}.pitem .nm{font-size:15px}}
+</style>
+</head>
+<body>
+<header><div class="top"><h1 id="ttl">施術録 記載案</h1><div class="who" id="who"></div></div></header>
+<main id="view"><p class="muted">読み込み中…</p></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+(function(){
+"use strict";
+/* 予約表（index.html）と同じ接続先。ログインも共通です。 */
+const SB_URL='https://gxpnfftlixwyhxafcgdy.supabase.co',SB_KEY='sb_publishable_oOpjTBMdzfZHtumjOdpuIg_w-3uLdep';
+const YOYAKU_URL='./';
+/* 今はJR茨木院だけで使います。広げるときはここに店舗IDを足します。 */
+const ENABLED_STORES=['s4'];
+const STORE_NAMES={s1:'阪急茨木院',s2:'朝潮橋院',s3:'河内山本院',s4:'JR茨木院'};
+const KIND={omote:'表面',ura:'裏面',both:'表と裏'};
+let sb=null;
+const S={user:null,admin:false,store:null,drafts:[],pats:{},q:'',filter:'todo',view:'list',pid:null,open:{},busy:false};
+const $=s=>document.querySelector(s);
+const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2600);}
+async function q(p){const {data,error}=await p;if(error)throw error;return data;}
+function errText(e){return (e&&(e.message||e.error_description))||'不明なエラー';}
+function fmt(iso){const d=new Date(iso);if(isNaN(d))return '';return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+/* 検索用：ひらがな→カタカナ、空白と全角半角の違いを無視 */
+function norm(s){return String(s||'').normalize('NFKC').replace(/[ぁ-ゖ]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60)).replace(/\s+/g,'').toLowerCase();}
+function kanriNorm(s){const t=String(s||'').normalize('NFKC').replace(/\D/g,'');return t?String(parseInt(t,10)):'';}
+
+/* ---------- データ ---------- */
+async function loadDrafts(){
+  const rows=await q(sb.from('sejutsu_drafts').select('id,patient_id,kind,body,source,created_by,created_at,done,done_at,done_by').eq('store_id',S.store).order('created_at',{ascending:false}).limit(2000));
+  S.drafts=rows||[];
+  const need=[...new Set(S.drafts.map(d=>d.patient_id))].filter(id=>!S.pats[id]);
+  for(let i=0;i<need.length;i+=100){
+    const ps=await q(sb.from('patients').select('id,kanri_no,name,kana').in('id',need.slice(i,i+100)));
+    (ps||[]).forEach(p=>S.pats[p.id]=p);
+  }
+}
+async function findPatient(kanri){
+  const k=kanriNorm(kanri);if(!k)return null;
+  const rows=await q(sb.from('patients').select('id,kanri_no,name,kana').eq('store_id',S.store).eq('kanri_no',k).limit(1));
+  const p=rows&&rows[0];if(p)S.pats[p.id]=p;return p||null;
+}
+async function findByName(name){
+  const n=norm(name);if(!n)return [];
+  const rows=await q(sb.from('patients').select('id,kanri_no,name,kana').eq('store_id',S.store).limit(5000));
+  return (rows||[]).filter(p=>norm(p.name)===n);
+}
+function patientGroups(){
+  const g={};
+  S.drafts.forEach(d=>{(g[d.patient_id]=g[d.patient_id]||{pid:d.patient_id,list:[],todo:0,last:d.created_at}).list.push(d);if(!d.done)g[d.patient_id].todo++;});
+  return Object.values(g).sort((a,b)=>(b.todo?1:0)-(a.todo?1:0)||(a.last<b.last?1:-1));
+}
+
+/* ---------- 画面 ---------- */
+function render(){
+  const v=$('#view');
+  if(S.view==='add'){v.innerHTML=addView();bindAdd();return;}
+  if(S.view==='detail'&&S.pid){v.innerHTML=detailView();return;}
+  v.innerHTML=listView();
+  const si=$('#search');if(si){si.addEventListener('input',e=>{S.q=e.target.value;renderList();});}
+}
+function listHtml(){
+  const qq=norm(S.q),qk=kanriNorm(S.q);
+  let gs=patientGroups();
+  if(S.filter==='todo')gs=gs.filter(g=>g.todo>0);
+  if(qq)gs=gs.filter(g=>{const p=S.pats[g.pid]||{};return norm(p.name).includes(qq)||norm(p.kana).includes(qq)||(qk&&String(p.kanri_no)===qk);});
+  if(!gs.length)return '<div class="empty">'+(S.drafts.length?'該当する記載案はありません':'まだ記載案がありません。<br>「＋ 貼り付けて登録」から追加できます。')+'</div>';
+  return '<div class="plist">'+gs.map(g=>{const p=S.pats[g.pid]||{name:'（患者情報なし）'};
+    return '<button class="pitem" data-act="open" data-pid="'+esc(g.pid)+'"><div><div class="nm">'+esc(p.name)+' 様</div><div class="kn">'+esc(p.kana||'')+(p.kanri_no?'　No.'+esc(p.kanri_no):'')+'</div></div><div class="rt">'+(g.todo?'<span class="pill todo">未記入 '+g.todo+'</span>':'<span class="pill ok">記入済み</span>')+'<span class="muted">更新 '+esc(fmt(g.last))+'</span></div></button>';}).join('')+'</div>';
+}
+function renderList(){const el=$('#plist');if(el)el.innerHTML=listHtml();}
+function listView(){
+  const todoN=patientGroups().filter(g=>g.todo).length;
+  return '<div class="bar"><input type="search" id="search" placeholder="名前・ふりがな・管理番号で検索" value="'+esc(S.q)+'" autocomplete="off"><div class="seg"><button data-act="filter" data-f="todo" class="'+(S.filter==='todo'?'on':'')+'">未記入あり（'+todoN+'）</button><button data-act="filter" data-f="all" class="'+(S.filter==='all'?'on':'')+'">すべて</button></div><button class="primary" data-act="add">＋ 貼り付けて登録</button></div><div id="plist">'+listHtml()+'</div>';
+}
+function detailView(){
+  const p=S.pats[S.pid]||{name:'（患者情報なし）'};
+  const list=S.drafts.filter(d=>d.patient_id===S.pid);
+  let h='<div class="row" style="margin-bottom:12px"><button data-act="back">← 一覧へ</button><button data-act="add" data-pid="'+esc(S.pid)+'">＋ この患者さんに追加</button></div>';
+  h+='<h2>'+esc(p.name)+' 様 <span class="muted">'+esc(p.kana||'')+(p.kanri_no?'　No.'+esc(p.kanri_no):'')+'</span></h2>';
+  h+='<p class="muted" style="margin-top:-6px">記載案はすべて仮の例です。実際の所見・施術内容と照らし合わせてから施術録に記入してください。</p>';
+  if(!list.length)h+='<div class="empty">記載案はありません</div>';
+  list.forEach((d,i)=>{
+    const collapsed=d.done&&!S.open[d.id];
+    h+='<div class="draft'+(d.done?' isdone':'')+(collapsed?' collapsed':'')+'"><div class="hd"><span class="pill kind">'+esc(KIND[d.kind]||d.kind)+'</span>'+(d.done?'<span class="pill ok">記入済み</span>':'<span class="pill todo">未記入</span>')+(i===0?'<span class="pill src">最新</span>':'')+'<span class="dt">'+esc(fmt(d.created_at))+' 登録（'+(d.source==='claude'?'Claude':esc(d.created_by||'スタッフ'))+'）</span></div>';
+    h+='<pre>'+esc(d.body)+'</pre>';
+    h+='<div class="ft"><button class="small" data-act="copy" data-id="'+esc(d.id)+'">コピー</button><button class="small fold" data-act="unfold" data-id="'+esc(d.id)+'">全文を表示</button>'+(d.done?'<button class="small" data-act="undone" data-id="'+esc(d.id)+'">未記入に戻す</button>':'<button class="small done" data-act="done" data-id="'+esc(d.id)+'">✓ 記入済みにする</button>')+(S.admin?'<button class="small danger" data-act="del" data-id="'+esc(d.id)+'">削除</button>':'')+(d.done&&d.done_at?'<span class="by">'+esc(fmt(d.done_at))+' 記入済み'+(d.done_by?'（'+esc(d.done_by)+'）':'')+'</span>':'')+'</div></div>';
+  });
+  return h;
+}
+function addView(){
+  const p=S.pid&&S.pats[S.pid];
+  return '<div class="row" style="margin-bottom:12px"><button data-act="cancel">← 戻る</button></div><div class="card"><h2>記載案を貼り付けて登録</h2>'
+  +'<label class="f">記載案（LINE用のテキストをそのまま貼り付け）</label><textarea id="body" placeholder="【山田 太郎 様】&#10;①…&#10;■表面&#10;…"></textarea>'
+  +'<label class="f">管理番号</label><div class="row"><input type="text" id="kanri" inputmode="numeric" style="width:140px" value="'+esc(p?p.kanri_no||'':'')+'" placeholder="例：320"><span class="muted">貼り付けた文の名前から自動で探します</span></div><div class="match" id="match">'+(p?'<span class="ok">✓ '+esc(p.name)+' 様</span>':'')+'</div>'
+  +'<label class="f">種類</label><select id="kind"><option value="both">表と裏</option><option value="omote">表面</option><option value="ura">裏面</option></select>'
+  +'<div class="row" style="margin-top:18px"><button class="primary" id="save" data-act="save">登録する</button></div></div>';
+}
+let matchP=null;
+function setMatch(p,msg){matchP=p;const m=$('#match');if(!m)return;m.className='match '+(p?'ok':'ng');m.textContent=p?'✓ '+p.name+' 様（No.'+p.kanri_no+'）':(msg||'');}
+function guessKind(t){const a=/■?表面/.test(t),b=/■?裏面/.test(t);return a&&b?'both':b?'ura':a?'omote':'both';}
+function bindAdd(){
+  matchP=S.pid?S.pats[S.pid]||null:null;
+  let tm=null;
+  $('#kanri').addEventListener('input',()=>{clearTimeout(tm);tm=setTimeout(async()=>{const v=$('#kanri').value;if(!kanriNorm(v)){setMatch(null,'');return;}try{const p=await findPatient(v);setMatch(p,p?'':'この管理番号の患者さんが'+(STORE_NAMES[S.store]||'')+'に見つかりません');}catch(e){setMatch(null,'検索できませんでした');}},300);});
+  $('#body').addEventListener('input',()=>{clearTimeout(tm);tm=setTimeout(async()=>{const t=$('#body').value;$('#kind').value=guessKind(t);if(matchP&&$('#kanri').value)return;const m=t.match(/【\s*([^】]+?)\s*様\s*】/);if(!m)return;try{const ps=await findByName(m[1]);if(ps.length===1){S.pats[ps[0].id]=ps[0];$('#kanri').value=ps[0].kanri_no||'';setMatch(ps[0]);}else if(ps.length>1)setMatch(null,'同じ名前の方が'+ps.length+'人います。管理番号を入れてください');else setMatch(null,'「'+m[1]+'」様が見つかりません。管理番号を入れてください');}catch(e){}},400);});
+}
+
+/* ---------- 操作 ---------- */
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;const act=b.dataset.act;
+  if(act==='logout'){await sb.auth.signOut();location.reload();return;}
+  if(act==='filter'){S.filter=b.dataset.f;render();return;}
+  if(act==='open'){S.pid=b.dataset.pid;S.view='detail';render();window.scrollTo(0,0);return;}
+  if(act==='back'){S.view='list';S.pid=null;render();return;}
+  if(act==='add'){S.pid=b.dataset.pid||null;S.view='add';render();window.scrollTo(0,0);return;}
+  if(act==='cancel'){S.view=S.pid?'detail':'list';render();return;}
+  if(act==='unfold'){S.open[b.dataset.id]=1;render();return;}
+  const d=S.drafts.find(x=>x.id===b.dataset.id);
+  if(act==='copy'&&d){try{await navigator.clipboard.writeText(d.body);toast('コピーしました');}catch(_){toast('コピーできませんでした');}return;}
+  if(S.busy)return;
+  if((act==='done'||act==='undone')&&d){
+    S.busy=true;b.disabled=true;const on=act==='done';
+    try{await q(sb.from('sejutsu_drafts').update({done:on,done_at:on?new Date().toISOString():null,done_by:on?(S.user.email||null):null}).eq('id',d.id));Object.assign(d,{done:on,done_at:on?new Date().toISOString():null,done_by:on?S.user.email:null});toast(on?'記入済みにしました':'未記入に戻しました');}
+    catch(err){toast('保存できませんでした：'+errText(err));}
+    S.busy=false;render();return;
+  }
+  if(act==='del'&&d){
+    if(!confirm('この記載案を削除します。元に戻せません。よろしいですか？'))return;
+    S.busy=true;try{await q(sb.from('sejutsu_drafts').delete().eq('id',d.id));S.drafts=S.drafts.filter(x=>x.id!==d.id);toast('削除しました');}catch(err){toast('削除できませんでした：'+errText(err));}
+    S.busy=false;render();return;
+  }
+  if(act==='save'){
+    const body=$('#body').value.trim();
+    if(!body){toast('記載案を貼り付けてください');return;}
+    let p=matchP;
+    if(!p&&$('#kanri').value){try{p=await findPatient($('#kanri').value);}catch(_){}}
+    if(!p){toast('患者さんが決まっていません。管理番号を入れてください');return;}
+    S.busy=true;b.disabled=true;
+    try{await q(sb.from('sejutsu_drafts').insert({store_id:S.store,patient_id:p.id,kind:$('#kind').value,body,source:'staff',created_by:S.user.email||null}));await loadDrafts();S.pid=p.id;S.view='detail';toast('登録しました');}
+    catch(err){toast('登録できませんでした：'+errText(err));b.disabled=false;}
+    S.busy=false;render();window.scrollTo(0,0);return;
+  }
+});
+
+/* ---------- ログイン ---------- */
+function showLogin(msg){
+  $('#who').innerHTML='<a href="'+YOYAKU_URL+'">予約表へ</a>';
+  $('#view').innerHTML='<form class="login" id="lf"><h2>ログイン</h2><p class="muted" style="text-align:center;margin:0">予約表と同じメールアドレスとパスワードです</p>'+(msg?'<div class="banner err" style="margin-top:12px">'+esc(msg)+'</div>':'')+'<label>メールアドレス</label><input type="email" id="le" autocomplete="username" required><label>パスワード</label><input type="password" id="lp" autocomplete="current-password" required><button class="primary" type="submit">ログイン</button></form>';
+  $('#lf').addEventListener('submit',async ev=>{
+    ev.preventDefault();ev.target.querySelector('button').disabled=true;
+    const {data,error}=await sb.auth.signInWithPassword({email:$('#le').value.trim(),password:$('#lp').value});
+    if(error){showLogin('メールアドレスかパスワードが違います');return;}
+    start(data.user);
+  });
+}
+let rt=null;
+function subscribe(){
+  sb.channel('sejutsu').on('postgres_changes',{event:'*',schema:'public',table:'sejutsu_drafts'},()=>{clearTimeout(rt);rt=setTimeout(async()=>{if(S.view==='add')return;try{await loadDrafts();render();}catch(_){}},400);}).subscribe();
+}
+async function start(user){
+  S.user=user;
+  try{
+    const pr=await q(sb.from('profiles').select('role,store_id').eq('user_id',user.id).maybeSingle());
+    if(!pr){await sb.auth.signOut();showLogin('このアカウントは店舗に登録されていません。管理者に連絡してください。');return;}
+    S.admin=pr.role==='admin';
+    S.store=S.admin?ENABLED_STORES[0]:pr.store_id;
+    $('#who').innerHTML='<span>'+esc(S.admin?'管理者':(STORE_NAMES[S.store]||''))+'</span><a href="'+YOYAKU_URL+'">予約表へ</a><button class="link" data-act="logout">ログアウト</button>';
+    $('#ttl').textContent='施術録 記載案（'+(STORE_NAMES[S.store]||'')+'）';
+    if(!ENABLED_STORES.includes(S.store)){$('#view').innerHTML='<div class="banner warn">この機能は今はJR茨木院だけで使えます。</div>';return;}
+    await loadDrafts();
+  }catch(e){$('#view').innerHTML='<div class="banner err">データを読み込めませんでした（'+esc(errText(e))+'）。</div>';return;}
+  render();subscribe();
+}
+async function boot(){
+  if(!window.supabase){$('#view').innerHTML='<div class="banner err">通信の準備ができませんでした。ページを開き直してください。</div>';return;}
+  sb=supabase.createClient(SB_URL,SB_KEY);
+  const {data}=await sb.auth.getSession();
+  if(data&&data.session&&data.session.user)start(data.session.user);else showLogin();
+}
+boot();
+})();
+</script>
+</body>
+</html>
