@@ -318,7 +318,7 @@ function sheetTable(){
  const days=S.one?[S.date]:[1,2,3,4,5,6].concat(st.days[0]?[0]:[]).map(i=>addDays(w,(i+6)%7));
  const lanes=lanesFor(st,days),n=lanes.length,c=n+1;
  {const sc=document.querySelector('.scroll'),av=Math.max(320,(sc&&sc.clientWidth)||innerWidth-32)-52,N=days.length*c;
-  const cw=S.one?Math.max(72,Math.min(140,Math.floor(av/c))):Math.max(40,Math.min(64,Math.floor(av/((innerWidth>innerHeight?3:2)*c))));
+  const cw=S.one?Math.max(72,Math.min(140,Math.floor(av/c))):Math.max(40,Math.min(64,Math.floor(av/((innerWidth>innerHeight?4:2)*c))));
   const tt=$('tt');tt.style.gridTemplateColumns='52px repeat('+N+',minmax('+cw+'px,1fr))';tt.style.minWidth='0';tt.style.width=Math.max(av,cw*N)+52+'px';tt.classList.toggle('nar',cw<90)}
  const bd=' style="border-left:2px solid var(--ink)"';
  let h='<div class="hd cn"></div>'+days.map(d=>'<div class="hd'+(iso(d)===iso(new Date())?' td':'')+'" style="grid-column:span '+c+';border-left:2px solid var(--ink)">'+(d.getMonth()+1)+'/'+d.getDate()+'（'+'日月火水木金土'[d.getDay()]+'）</div>').join('');
