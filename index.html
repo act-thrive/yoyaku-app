@@ -40,6 +40,9 @@ button{cursor:pointer}
 #fh .tt{min-width:0;width:auto}
 .stk{position:sticky;top:0;z-index:30;background:var(--bg);padding:6px 0 4px;margin:0 0 4px;box-shadow:0 6px 8px -8px rgba(0,0,0,.35)}
 .stk #q{margin:0;box-sizing:border-box;max-width:100%}.stk #sug{margin-top:6px}
+#detail:not(:empty){position:fixed;left:50%;transform:translateX(-50%);bottom:10px;width:min(1100px,calc(100% - 20px));z-index:40;max-height:55vh;overflow:auto;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.28)}
+#detail .panel{margin:0;border:1px solid var(--line)}
+#detail .panel:not([style]){background:var(--sf)}
 .stk.nostk{position:static;box-shadow:none}
 #psel:empty{display:none}
 #psel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;padding:6px 10px;border-radius:10px;background:var(--hi)}
@@ -236,7 +239,8 @@ function patient(){
  ${p.nw?`<div class="row" style="margin-top:8px"><label>メープルの管理番号 <input id="lnum" class="fi" autocomplete="off" inputmode="numeric"></label><button class="btn" id="link">管理番号を登録</button></div><p>メープルの管理番号を登録すると、メープルの患者さんとして紐づきます（すでに同じ管理番号の方がいる場合は、予約もまとめられます）。</p>`:''}
  <p>下の表の空き枠をタップすると予約が入ります。店舗を変更しても、過去の予約は元の店舗に残ります。</p></div>`;
 }
-function detail(){
+function detail(){detail0();const h=$('detail').innerHTML?$('detail').offsetHeight+24:0;document.body.style.paddingBottom=h?h+'px':''}
+function detail0(){
  if(S.mv){
   const mb=B[S.mv];
   if(!mb){S.mv=null}
