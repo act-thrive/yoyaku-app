@@ -4,10 +4,11 @@
   var PAGES=['index.html','zaiko.html','sejutsu.html','receipt.html','update-check.js'];
   var INTERVAL=120000;
   var base={},count=0,lastSig=null,busy=false;
+  function hash(t){var h=5381;for(var i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))|0;return t.length+':'+h;}
   function stamp(p){
-    return fetch(p+'?uc='+Date.now(),{method:'HEAD',cache:'no-store'}).then(function(r){
-      if(!r.ok)return null;
-      return r.headers.get('etag')||r.headers.get('last-modified')||null;
+    // 中身そのものを比べる（サーバの日時やETagは中身が同じでも変わることがあるため）
+    return fetch(p,{cache:'no-cache'}).then(function(r){
+      if(!r.ok)return null;return r.text().then(hash);
     }).catch(function(){return null;});
   }
   function reload(){location.replace(location.pathname+'?r='+Date.now()+location.hash);}
@@ -32,17 +33,19 @@
       f.innerHTML='⟳ 新しい版があります<span class="uc-badge">'+count+'</span>';
     }
   }
+  var pending=null,recheck=0;
   function check(){
     if(busy||document.hidden)return;busy=true;
     Promise.all(PAGES.map(stamp)).then(function(st){
-      var changed=0;
-      PAGES.forEach(function(p,i){
-        if(st[i]==null)return;
-        if(base[p]===undefined){base[p]=st[i];return;}
-        if(base[p]!==st[i])changed++;
-      });
+      if(st.some(function(x){return x==null;}))return;
+      var first=!Object.keys(base).length;
+      if(first){PAGES.forEach(function(p,i){base[p]=st[i];});return;}
+      var changed=PAGES.some(function(p,i){return base[p]!==st[i];});
       var sig=st.join('|');
-      if(changed&&sig!==lastSig){lastSig=sig;count=Math.max(count+1,1);show();}
+      if(!changed||sig===lastSig){pending=null;return;}
+      // 2回続けて同じ新しい中身が見えたときだけ知らせる
+      if(pending!==sig){pending=sig;clearTimeout(recheck);recheck=setTimeout(check,20000);return;}
+      pending=null;lastSig=sig;count++;show();
     }).finally(function(){busy=false;});
   }
   if(location.protocol==='file:')return;
