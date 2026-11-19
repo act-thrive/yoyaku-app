@@ -57,6 +57,10 @@ button{cursor:pointer}
 .tt{display:grid;min-width:max-content;width:100%}
 .hd{font-weight:700;text-align:center;padding:8px 4px;border-bottom:1px solid var(--line);background:var(--sf)}
 .tt .hr{border-top:2px solid var(--ink)!important}
+.tt button.wa{height:auto;min-height:40px;white-space:normal;padding:2px 4px;font-size:11.5px;font-weight:600;line-height:1.25;text-align:left;overflow:hidden}
+.tt.wkall>button,.tt.wkall>.cl{height:auto;min-height:40px}
+.wa .wn{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wa .wc{color:var(--mut);font-weight:400}
 .hd.td{background:var(--hi)}
 .hd.cn{position:sticky;left:0;z-index:5}
 .tm{position:sticky;left:0;z-index:2;background:var(--sf)}
@@ -277,7 +281,7 @@ function weekTable(){
  const st=STORES.find(s=>s.id===S.store),w=wk0(S.date),days=[0,1,2,3,4,5,6].map(i=>addDays(w,i));
  const wlanes=lanesFor(st,days);if(S.ws>=0&&!wlanes.includes(S.ws))S.ws=wlanes.length?wlanes[0]:0;
  $('wst').innerHTML='<option value="-1"'+(S.ws===-1?' selected':'')+'>全員</option><option value="-2"'+(S.ws===-2?' selected':'')+'>10分枠</option>'+wlanes.map(i=>'<option value="'+i+'"'+(i===S.ws?' selected':'')+'>'+esc(lnm(st,i))+'</option>').join('');
- $('tt').style.gridTemplateColumns='52px repeat(7,minmax(84px,1fr))';
+ $('tt').style.gridTemplateColumns='52px repeat(7,minmax(84px,1fr))';$('tt').classList.toggle('wkall',S.ws===-1);
  let h='<div class="hd cn"></div>'+days.map(d=>'<div class="hd'+(iso(d)===iso(new Date())?' td':'')+'">'+(d.getMonth()+1)+'/'+d.getDate()+'（'+'日月火水木金土'[d.getDay()]+'）</div>').join('');
  slotsOf(st).forEach(t=>{
   h+='<div class="tm">'+fmt(t)+'</div>';
@@ -286,8 +290,8 @@ function weekTable(){
    if(isBreak(st,t,d)){h+='<div class="cl">'+(t===(st.half[d.getDay()]?st.halfEnd:st.lastAm)+20?(st.half[d.getDay()]?'午後休み':'休憩'):'')+'</div>';return}
    if(S.ws===-2){h+='<div class="qc">'+[t,t+10].map((u,j)=>{if(j&&(isBreak(st,u,d)||t===st.lastPm))return '<div class="cl"></div>';const k=key(d,S.store,'q',u),b=B[k];return b?'<button class="bk'+(S.sel===k?' on':'')+'" data-k="'+k+'">'+mk(b)+'</button>':'<button class="em" data-s="q" data-t="'+u+'" data-d="'+iso(d)+'" aria-label="'+iso(d)+' '+fmt(u)+' 10分枠 空き"></button>'}).join('')+'</div>';return}
    if(S.ws===-1){
-    const bs=[];wlanes.forEach(s=>{const nm=lnm(st,s);const bb=B[key(d,S.store,s,t)];if(bb)bs.push(pn(bb.pid)+'（'+nm+'）')});
-    h+='<button class="'+(bs.length?'bk':'em')+'" data-a="1" data-t="'+t+'" data-d="'+iso(d)+'" title="'+esc(bs.join('、'))+'">'+(bs.length?bs.length+' / '+wlanes.length:'')+'</button>';return}
+    const bs=[],ns=[];wlanes.forEach(s=>{const nm=lnm(st,s);const bb=B[key(d,S.store,s,t)];if(bb){bs.push(pn(bb.pid)+'（'+nm+'）');ns.push('<span class="wn'+(bb.cont?' wc':'')+'">'+(bb.cont?'↓':'')+esc(pn(bb.pid))+'</span>')}});
+    h+='<button class="'+(bs.length?'bk wa':'em')+'" data-a="1" data-t="'+t+'" data-d="'+iso(d)+'" title="'+esc(bs.join('、'))+'">'+ns.join('')+'</button>';return}
    const k=key(d,S.store,S.ws,t),b=B[k];
    if(!b&&isAbsent(S.store,d,S.ws,t,st)){h+=absCell(S.store,d,S.ws,t,st);return}
    if(b){h+='<button class="bk'+(S.sel===k?' on':'')+'" data-k="'+k+'">'+mk(b)+'</button>'}
@@ -297,6 +301,7 @@ function weekTable(){
  $('tt').innerHTML=h;
 }
 function sheetTable(){
+ $('tt').classList.remove('wkall');
  const st=STORES.find(s=>s.id===S.store),w=wk0(S.date);
  const days=S.one?[S.date]:[1,2,3,4,5,6].concat(st.days[0]?[0]:[]).map(i=>addDays(w,(i+6)%7));
  const lanes=lanesFor(st,days),n=lanes.length,c=n+1;
