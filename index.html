@@ -267,6 +267,7 @@ function detail0(){
  $('detail').innerHTML=`<div class="panel row"><span>${esc(pn(pid))}さん　${md(dd)} ${fmt(+t)}　${s==='q'?'10分枠':lnm(STORES.find(x=>x.id===S.store),+s)}</span>${MK.map(([f,l])=>`<label class="chk"><input type="checkbox" data-bm="${f}"${(pb&&pb.m&&pb.m[f])?' checked':''}> ${l}</label>`).join('')}<button class="btn p" id="nxbtn">次回予約</button><button class="btn" id="mvbtn">時間を変更</button><button class="btn d" id="cancel">予約を取り消す</button><button class="btn" id="close">閉じる</button></div>`;
 }
 let SHORT=false;
+const SHORT_STORES=['s1'];// 阪急茨木院だけ、複数日の表示で「名字＋管理番号」にする
 const sur=pid=>{const n=pn(pid);const a=n.split(/[ 　]+/);return a.length>1&&a[0]?a[0]:n};
 const mk=b=>{if(b.cont)return '<span class="nm" style="color:var(--mut)">↓</span>';const m=b.m||{};return '<span class="nm'+(m.n?' nw':'')+(m.j?' jh':'')+(m.k?' kc':'')+'">'+esc(SHORT?sur(b.pid):pn(b.pid))+'</span>'+(pcn(b.pid)?'<span class="no">No.'+esc(pcn(b.pid))+'</span>':'')+(m.r?'<i class="rs">レセ</i>':'')+(m.h?'<i class="hr">ハ</i>':'')};
 function table(){
@@ -287,7 +288,7 @@ function table(){
  $('tt').innerHTML=h;
 }
 function weekTable(){
- SHORT=true;$('tt').classList.add('sh');
+ SHORT=SHORT_STORES.includes(S.store);$('tt').classList.toggle('sh',SHORT);
  const st=STORES.find(s=>s.id===S.store),w=wk0(S.date),days=[0,1,2,3,4,5,6].map(i=>addDays(w,i));
  const wlanes=lanesFor(st,days);if(S.ws>=0&&!wlanes.includes(S.ws))S.ws=wlanes.length?wlanes[0]:0;
  $('wst').innerHTML='<option value="-1"'+(S.ws===-1?' selected':'')+'>全員</option><option value="-2"'+(S.ws===-2?' selected':'')+'>10分枠</option>'+wlanes.map(i=>'<option value="'+i+'"'+(i===S.ws?' selected':'')+'>'+esc(lnm(st,i))+'</option>').join('');
@@ -300,7 +301,7 @@ function weekTable(){
    if(isBreak(st,t,d)){h+='<div class="cl">'+(t===(st.half[d.getDay()]?st.halfEnd:st.lastAm)+20?(st.half[d.getDay()]?'午後休み':'休憩'):'')+'</div>';return}
    if(S.ws===-2){h+='<div class="qc">'+[t,t+10].map((u,j)=>{if(j&&(isBreak(st,u,d)||t===st.lastPm))return '<div class="cl"></div>';const k=key(d,S.store,'q',u),b=B[k];return b?'<button class="bk'+(S.sel===k?' on':'')+'" data-k="'+k+'">'+mk(b)+'</button>':'<button class="em" data-s="q" data-t="'+u+'" data-d="'+iso(d)+'" aria-label="'+iso(d)+' '+fmt(u)+' 10分枠 空き"></button>'}).join('')+'</div>';return}
    if(S.ws===-1){
-    const bs=[],ns=[];wlanes.forEach(s=>{const nm=lnm(st,s);const bb=B[key(d,S.store,s,t)];if(bb){bs.push(pn(bb.pid)+'（'+nm+'）');ns.push('<span class="wn'+(bb.cont?' wc':'')+'">'+(bb.cont?'↓':'')+(pcn(bb.pid)?esc(pcn(bb.pid))+' ':'')+esc(sur(bb.pid))+'</span>')}});
+    const bs=[],ns=[];wlanes.forEach(s=>{const nm=lnm(st,s);const bb=B[key(d,S.store,s,t)];if(bb){bs.push(pn(bb.pid)+'（'+nm+'）');ns.push('<span class="wn'+(bb.cont?' wc':'')+'">'+(bb.cont?'↓':'')+(SHORT?(pcn(bb.pid)?esc(pcn(bb.pid))+' ':'')+esc(sur(bb.pid)):esc(pn(bb.pid)))+'</span>')}});
     h+='<button class="'+(bs.length?'bk wa':'em')+'" data-a="1" data-t="'+t+'" data-d="'+iso(d)+'" title="'+esc(bs.join('、'))+'">'+ns.join('')+'</button>';return}
    const k=key(d,S.store,S.ws,t),b=B[k];
    if(!b&&isAbsent(S.store,d,S.ws,t,st)){h+=absCell(S.store,d,S.ws,t,st);return}
@@ -311,7 +312,7 @@ function weekTable(){
  $('tt').innerHTML=h;
 }
 function sheetTable(){
- SHORT=!S.one;$('tt').classList.toggle('sh',SHORT);
+ SHORT=!S.one&&SHORT_STORES.includes(S.store);$('tt').classList.toggle('sh',SHORT);
  $('tt').classList.remove('wkall');
  const st=STORES.find(s=>s.id===S.store),w=wk0(S.date);
  const days=S.one?[S.date]:[1,2,3,4,5,6].concat(st.days[0]?[0]:[]).map(i=>addDays(w,(i+6)%7));
