@@ -88,7 +88,7 @@ const MANY_PARTS=3;         /* この部位数以上は「参考」で知らせ�
 const TYPOS=[[/っが/,'「〜っが」（「〜ったが」の脱字？）'],[/っを/,'「〜っを」（脱字？）'],[/崩すし/,'「崩すし」（「崩し」の誤字？）'],[/をを|にに|がが|のの|はは|でで/,'同じ助詞が2回続いている'],[/時に時に|際に際に/,'同じ言葉が2回続いている'],[/負傷負傷/,'「負傷」が2回続いている']];
 
 let sb=null;
-const S={user:null,admin:false,store:null,pats:null,res:null,file:'',filter:'all'};
+const S={user:null,admin:false,store:null,pats:null,res:null,raw:null,file:'',filter:'all',keep:{}};
 const $=s=>document.querySelector(s);
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2600);}
@@ -182,14 +182,14 @@ function hl(t,words){let s=esc(t);(words||[]).forEach(w=>{if(!w)return;const e=e
 function render(){
   const v=$('#view');
   let h='';
-  if(S.admin){h+='<div class="card noprint row"><label for="st">店舗</label><select id="st">'+Object.keys(STORE_NAMES).map(k=>'<option value="'+k+'"'+(k===S.store?' selected':'')+'>'+STORE_NAMES[k]+'</option>').join('')+'</select><span class="muted">管理者は店舗を切り替えてチェックできます（患者さんの照合に使う店舗です）</span></div>';}
+  if(S.admin){h+='<div class="card noprint row"><label for="st">店舗</label><select id="st">'+Object.keys(STORE_NAMES).map(k=>'<option value="'+k+'"'+(k===S.store?' selected':'')+'>'+STORE_NAMES[k]+((k===S.store?S.raw:(S.keep[k]&&S.keep[k].raw))?'（読み込み済み）':'')+'</option>').join('')+'</select><span class="muted">店舗を選んでから、その店舗のCSVを読み込んでください。切り替えても読み込んだ結果は残ります</span></div>';}
   h+='<div class="card noprint"><h2>メープルの「負傷原因一覧」CSVを選んでください</h2>'+
      '<label class="drop" id="drop"><b>📄 ここをタップしてCSVを選ぶ</b><span class="muted">パソコンならファイルをここにドラッグしても大丈夫です</span><input type="file" id="f" accept=".csv,text/csv"></label>'+
      '<p class="muted" style="margin:8px 0 0">CSVはこの端末の中だけで読み込みます。インターネット上には送らず、保存もしません。'+(S.pats?'患者さんの照合には、予約表に登録済みの'+esc(STORE_NAMES[S.store])+'の患者さん（'+S.pats.size+'人）を使います。':'')+'</p></div>';
   if(S.res){
     const L=S.res.list,cnt={1:0,2:0,3:0};L.forEach(p=>{const s=new Set(p.iss.map(x=>x.lv));s.forEach(l=>cnt[l]++);});
     const clean=L.filter(p=>!p.iss.some(x=>x.lv<3)).length;
-    h+='<div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">チェック結果（'+esc(STORE_NAMES[S.store]||'')+'）</h2><div class="row noprint"><button id="pr">🖨 印刷</button><button id="clr">別のCSVを選ぶ</button></div></div>'+
+    h+='<div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">チェック結果（'+esc(STORE_NAMES[S.store]||'')+'）</h2><div class="row noprint"><button class="primary" id="dl">⬇ 店舗に送るファイルを保存</button><button id="pr">🖨 印刷</button><button id="clr">別のCSVを選ぶ</button></div></div>'+
        '<p class="muted">'+esc(S.file)+(S.res.period?'　期間：'+esc(S.res.period):'')+'　'+L.length+'人・'+S.res.nRows+'部位</p>'+
        '<div class="sum noprint">'+
        '<button class="s1" data-f="1" aria-pressed="'+(S.filter==='1')+'"><span class="n">'+cnt[1]+'</span><span class="l">要修正の人</span></button>'+
@@ -216,11 +216,33 @@ function render(){
   v.innerHTML=h;
   const f=$('#f');if(f)f.onchange=e=>{const file=e.target.files[0];if(file)readFile(file);e.target.value='';};
   const d=$('#drop');if(d){d.ondragover=e=>{e.preventDefault();d.classList.add('over');};d.ondragleave=()=>d.classList.remove('over');d.ondrop=e=>{e.preventDefault();d.classList.remove('over');const file=e.dataTransfer.files[0];if(file)readFile(file);};}
-  const st=$('#st');if(st)st.onchange=async()=>{S.store=st.value;await loadPats();if(S.raw)runCheck();else render();};
+  const st=$('#st');if(st)st.onchange=async()=>{S.keep[S.store]={raw:S.raw,file:S.file};S.store=st.value;const k=S.keep[S.store]||{};S.raw=k.raw||null;S.file=k.file||'';S.res=null;await loadPats();if(S.raw)runCheck();else render();};
   document.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{S.filter=b.dataset.f;render();});
   const pr=$('#pr');if(pr)pr.onclick=()=>window.print();
-  const c=$('#clr');if(c)c.onclick=()=>{S.res=null;S.raw=null;S.file='';render();};
+  const c=$('#clr');if(c)c.onclick=()=>{S.res=null;S.raw=null;S.file='';S.keep[S.store]=null;render();};
+  const dl=$('#dl');if(dl)dl.onclick=download;
   $('#ttl').textContent='レセプトチェック（'+(STORE_NAMES[S.store]||'')+'）';
+}
+function periodLabel(pd){const m=String(pd||'').replace(/\s/g,'').match(/^R(\d+)\/(\d+)\//);return m?'令和'+m[1]+'年'+m[2]+'月':'';}
+function download(){
+  if(!S.res)return;
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const sn=STORE_NAMES[S.store]||'',pl=periodLabel(S.res.period);
+  const lines=[['店舗','対象','区分','管理番号','氏名','傷病','指摘内容','負傷日','初検日','負傷原因（今の記載）'].map(q).join(',')];
+  let n=0;
+  for(const p of S.res.list){
+    for(const x of p.iss){
+      if(/部位です$|予約表の患者一覧/.test(x.msg))continue; /* 管理者向けの情報は店舗用ファイルに入れない */
+      const rs=x.dx?p.rows.filter(r=>r.dx===x.dx):[{}];
+      for(const r of rs){lines.push([sn,pl,LV[x.lv][1],p.id,p.nm,x.dx,x.msg,fmtD(r.fd),fmtD(r.sd),r.why||''].map(q).join(','));n++;}
+    }
+  }
+  if(!n)lines.push([sn,pl,'指摘なし','','','','チェックした範囲では指摘はありませんでした','','',''].map(q).join(','));
+  const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='レセプトチェック結果_'+sn+(pl?'_'+pl:'')+'.csv';
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+  toast('ファイルを保存しました。Gmailに添付して'+sn+'に送ってください');
 }
 function readFile(file){
   const rd=new FileReader();
@@ -259,8 +281,8 @@ async function start(user){
     const pr=await q(sb.from('profiles').select('role,store_id').eq('user_id',user.id).maybeSingle());
     if(!pr){await sb.auth.signOut();showLogin('このアカウントは店舗に登録されていません。管理者に連絡してください。');return;}
     S.admin=pr.role==='admin';
-    S.store=pr.store_id||(S.admin?'s4':null);
-    if(!S.store)S.store='s4';
+    if(!S.admin){$('#who').innerHTML='<a href="'+YOYAKU_URL+'">予約表へ</a><button class="link" data-act="logout">ログアウト</button>';$('#view').innerHTML='<div class="banner warn">レセプトチェックは管理者だけが使えます。予約表の管理者ページから開いてください。</div>';return;}
+    S.store=pr.store_id||'s4';
     $('#who').innerHTML='<span>'+esc(S.admin?'管理者':(STORE_NAMES[S.store]||''))+'</span><a href="'+YOYAKU_URL+'">予約表へ</a><button class="link" data-act="logout">ログアウト</button>';
     await loadPats();
   }catch(e){$('#view').innerHTML='<div class="banner err">読み込めませんでした（'+esc(errText(e))+'）。</div>';return;}
