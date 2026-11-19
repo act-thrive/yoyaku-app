@@ -96,6 +96,11 @@ button{cursor:pointer}
 .sheet .qc>:first-child{border-top:0}
 .bk{position:relative}
 .bk .nm{padding-right:14px;display:block;overflow:hidden;text-overflow:ellipsis}
+.tt.nar .bk{font-size:12px;padding:1px 2px;white-space:normal;line-height:1.2}
+.tt.nar .bk .nm{padding-right:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all}
+.tt.nar .bk .no{display:none}
+.tt.nar .bk i{transform:scale(.8);transform-origin:top right}
+.tt.nar .hd{font-size:13px;padding:8px 2px}
 .bk .no{display:block;font-size:11px;font-weight:600;color:var(--mut);line-height:1.2;overflow:hidden;text-overflow:ellipsis}
 .qc .bk .nm,.qc .bk .no{display:inline}.qc .bk .no{margin-left:3px}
 .nm.nw{color:var(--bad)}
@@ -281,7 +286,7 @@ function weekTable(){
  const st=STORES.find(s=>s.id===S.store),w=wk0(S.date),days=[0,1,2,3,4,5,6].map(i=>addDays(w,i));
  const wlanes=lanesFor(st,days);if(S.ws>=0&&!wlanes.includes(S.ws))S.ws=wlanes.length?wlanes[0]:0;
  $('wst').innerHTML='<option value="-1"'+(S.ws===-1?' selected':'')+'>全員</option><option value="-2"'+(S.ws===-2?' selected':'')+'>10分枠</option>'+wlanes.map(i=>'<option value="'+i+'"'+(i===S.ws?' selected':'')+'>'+esc(lnm(st,i))+'</option>').join('');
- $('tt').style.gridTemplateColumns='52px repeat(7,minmax(84px,1fr))';$('tt').classList.toggle('wkall',S.ws===-1);
+ $('tt').style.gridTemplateColumns='52px repeat(7,minmax(84px,1fr))';$('tt').style.minWidth='';$('tt').style.width='';$('tt').classList.remove('nar');$('tt').classList.toggle('wkall',S.ws===-1);
  let h='<div class="hd cn"></div>'+days.map(d=>'<div class="hd'+(iso(d)===iso(new Date())?' td':'')+'">'+(d.getMonth()+1)+'/'+d.getDate()+'（'+'日月火水木金土'[d.getDay()]+'）</div>').join('');
  slotsOf(st).forEach(t=>{
   h+='<div class="tm">'+fmt(t)+'</div>';
@@ -305,7 +310,9 @@ function sheetTable(){
  const st=STORES.find(s=>s.id===S.store),w=wk0(S.date);
  const days=S.one?[S.date]:[1,2,3,4,5,6].concat(st.days[0]?[0]:[]).map(i=>addDays(w,(i+6)%7));
  const lanes=lanesFor(st,days),n=lanes.length,c=n+1;
- $('tt').style.gridTemplateColumns='52px repeat('+days.length*c+',minmax('+(S.one?'104px':'60px')+',1fr))';
+ {const sc=document.querySelector('.scroll'),av=Math.max(320,(sc&&sc.clientWidth)||innerWidth-32)-52,N=days.length*c;
+  const cw=S.one?Math.max(72,Math.min(140,Math.floor(av/c))):Math.max(40,Math.min(64,Math.floor(av/((innerWidth>innerHeight?3:2)*c))));
+  const tt=$('tt');tt.style.gridTemplateColumns='52px repeat('+N+',minmax('+cw+'px,1fr))';tt.style.minWidth='0';tt.style.width=Math.max(av,cw*N)+52+'px';tt.classList.toggle('nar',cw<90)}
  const bd=' style="border-left:2px solid var(--ink)"';
  let h='<div class="hd cn"></div>'+days.map(d=>'<div class="hd'+(iso(d)===iso(new Date())?' td':'')+'" style="grid-column:span '+c+';border-left:2px solid var(--ink)">'+(d.getMonth()+1)+'/'+d.getDate()+'（'+'日月火水木金土'[d.getDay()]+'）</div>').join('');
  h+='<div class="hd h2 cn"></div>'+days.map(()=>lanes.map((x,i)=>'<div class="hd h2"'+(i?'':bd)+'>'+esc(lnm(st,x))+'</div>').join('')+'<div class="hd h2">10分</div>').join('');
@@ -394,7 +401,7 @@ function fhPos(){
  }else fh.style.display='none';
 }
 window.addEventListener('scroll',fhPos,{passive:true});
-window.addEventListener('resize',fit);
+let RZ=0,RW=innerWidth;window.addEventListener('resize',()=>{fit();clearTimeout(RZ);RZ=setTimeout(()=>{if(Math.abs(innerWidth-RW)>40&&!$('staffView').hidden&&S.view!=='week'){RW=innerWidth;render()}},250)});
 document.addEventListener('scroll',e=>{if(e.target&&e.target.classList&&e.target.classList.contains('scroll'))fhPos()},{capture:true,passive:true});
 try{new ResizeObserver(()=>{const k=$('stk');if(k&&!k.classList.contains('nostk')&&k.offsetHeight>innerHeight*0.5)fit();else fhPos()}).observe($('stk'))}catch(_){}
 function render(){
