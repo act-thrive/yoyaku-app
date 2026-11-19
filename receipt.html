@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-title" content="レセプトチェック">
+<title>レセプトチェック</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.56.0/dist/umd/supabase.min.js"></script>
+<style>
+:root{--navy:#1a3550;--navy2:#264a6e;--bg:#f4f6f9;--card:#fff;--line:#dde3ea;--text:#1d2733;--muted:#6b7785;--red:#c62828;--redbg:#fdecec;--org:#b45f06;--orgbg:#fff3e0;--green:#2e7d32;--greenbg:#e9f5ea;--yellow:#fff8dc;--gray:#eef1f4}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Noto Sans JP",system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:15px}
+header{background:var(--navy);color:#fff;padding:12px 18px}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.top h1{margin:0;font-size:18px;font-weight:700;letter-spacing:.04em}
+.top .who{margin-left:auto;font-size:13px;color:#c8d6e5;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.top a,.top button.link{color:#fff;font-size:13px;background:none;border:1px solid #6d88a6;border-radius:6px;padding:4px 10px;text-decoration:none;cursor:pointer;font-weight:400}
+main{max-width:960px;margin:0 auto;padding:16px}
+.banner{padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:14px}
+.banner.warn{background:var(--yellow);border:1px solid #ecd98a}
+.banner.err{background:var(--redbg);border:1px solid #f1b5b5;color:var(--red)}
+.banner.ok{background:var(--greenbg);border:1px solid #b9dcbb;color:var(--green)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+h2{font-size:17px;margin:4px 0 10px}
+.muted{color:var(--muted);font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input,select{font:inherit;padding:7px 9px;border:1px solid #c5ced8;border-radius:6px;background:#fff;color:var(--text)}
+button{font:inherit;font-size:14px;padding:7px 14px;border-radius:7px;border:1px solid var(--navy2);background:#fff;color:var(--navy2);cursor:pointer;font-weight:500}
+button.primary{background:var(--navy2);color:#fff}
+.drop{display:block;border:2px dashed #b7c3d0;border-radius:10px;padding:22px;text-align:center;background:#fafbfd;cursor:pointer}
+.drop:hover,.drop.over{border-color:var(--navy2);background:#eef3f9}
+.drop b{display:block;font-size:16px;margin-bottom:4px}
+.drop input{display:none}
+.sum{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 10px}
+.sum button{display:flex;flex-direction:column;align-items:center;min-width:110px;padding:8px 12px;border-radius:9px}
+.sum button .n{font-size:22px;font-weight:700;line-height:1.2}
+.sum button .l{font-size:12px}
+.sum button[aria-pressed=true]{outline:3px solid var(--navy2);outline-offset:1px}
+.sum .s1{border-color:var(--red);color:var(--red)}.sum .s2{border-color:var(--org);color:var(--org)}.sum .s3{border-color:#8a96a3;color:#56616d}
+.pt{background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden}
+.pt .hd{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line);background:#fbfcfd}
+.pt .hd .nm{font-weight:700;font-size:16px}
+.pt .hd .no{font-size:13px;color:var(--muted)}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.pill.s1{background:var(--red);color:#fff}.pill.s2{background:var(--orgbg);color:var(--org)}.pill.s3{background:var(--gray);color:#56616d}
+.iss{list-style:none;margin:0;padding:8px 12px}
+.iss li{display:flex;gap:8px;align-items:flex-start;padding:5px 0;font-size:14px;line-height:1.6}
+.iss li .pill{margin-top:2px}
+.iss .dx{font-weight:700}
+details.src{padding:0 12px 10px}
+details.src summary{cursor:pointer;font-size:13px;color:var(--navy2)}
+table.cs{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+table.cs th,table.cs td{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top}
+table.cs th{background:#f3f6f9;white-space:nowrap}
+mark{background:#ffe08a;padding:0 1px}
+mark.bad{background:#ffc9c9}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .3s;z-index:10;max-width:90vw}
+.toast.show{opacity:1}
+.login{max-width:360px;margin:60px auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:24px}
+.login h2{text-align:center}
+.login label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+.login input{width:100%}
+.login button{width:100%;margin-top:18px;padding:10px}
+.empty{text-align:center;color:var(--muted);padding:24px 10px}
+@media print{header,.noprint{display:none!important}body{background:#fff}main{max-width:none;padding:0}.pt{break-inside:avoid}details.src{display:none}}
+@media (max-width:600px){main{padding:10px}.sum button{min-width:90px}}
+</style>
+</head>
+<body>
+<header><div class="top"><h1 id="ttl">レセプトチェック</h1><div class="who" id="who"></div></div></header>
+<main id="view"><p class="muted">読み込み中…</p></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+(function(){
+"use strict";
+/* 予約表（index.html）と同じ接続先。ログインも共通です。
+   CSVの中身はこの端末の中だけで読み込み、どこにも保存・送信しません。 */
+const SB_URL='https://gxpnfftlixwyhxafcgdy.supabase.co',SB_KEY='sb_publishable_oOpjTBMdzfZHtumjOdpuIg_w-3uLdep';
+const YOYAKU_URL='./';
+const STORE_NAMES={s1:'阪急茨木院',s2:'朝潮橋院',s3:'河内山本院',s4:'JR茨木院'};
+const GAP_DAYS=7;           /* 負傷日から初検までこの日数以上空いたら「要確認」 */
+const MANY_PARTS=3;         /* この部位数以上は「参考」で知らせる */
+/* よくある誤字・脱字（見つけたらここに足していけます） */
+const TYPOS=[[/っが/,'「〜っが」（「〜ったが」の脱字？）'],[/っを/,'「〜っを」（脱字？）'],[/崩すし/,'「崩すし」（「崩し」の誤字？）'],[/をを|にに|がが|のの|はは|でで/,'同じ助詞が2回続いている'],[/時に時に|際に際に/,'同じ言葉が2回続いている'],[/負傷負傷/,'「負傷」が2回続いている']];
+
+let sb=null;
+const S={user:null,admin:false,store:null,pats:null,res:null,file:'',filter:'all'};
+const $=s=>document.querySelector(s);
+const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2600);}
+async function q(p){const {data,error}=await p;if(error)throw error;return data;}
+function errText(e){return (e&&(e.message||e.error_description))||'不明なエラー';}
+const nameKey=s=>String(s||'').normalize('NFKC').replace(/\s+/g,'');
+const kanriNorm=s=>{const t=String(s||'').normalize('NFKC').replace(/\D/g,'');return t?String(parseInt(t,10)):'';};
+
+/* ---------- CSV ---------- */
+function decode(buf){
+  const u=new Uint8Array(buf);
+  if(u[0]===0xEF&&u[1]===0xBB&&u[2]===0xBF)return new TextDecoder('utf-8').decode(u.subarray(3));
+  try{return new TextDecoder('utf-8',{fatal:true}).decode(u);}catch(_){return new TextDecoder('shift_jis').decode(u);}
+}
+function parseCsv(t){
+  const rows=[];let row=[],f='',i=0,qt=false;
+  while(i<t.length){const c=t[i];
+    if(qt){if(c==='"'){if(t[i+1]==='"'){f+='"';i++;}else qt=false;}else f+=c;}
+    else if(c==='"')qt=true;
+    else if(c===','){row.push(f);f='';}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(f);rows.push(row);row=[];f='';}
+    else f+=c;
+    i++;}
+  if(f!==''||row.length){row.push(f);rows.push(row);}
+  return rows.filter(r=>r.some(x=>x&&x.trim()));
+}
+/* 「R 8/10/ 1」→ Date */
+function wdate(s){const m=String(s||'').replace(/\s/g,'').match(/^([RHS令平昭])?(\d+)\/(\d+)\/(\d+)$/);if(!m)return null;
+  const base={R:2018,'令':2018,H:1988,'平':1988,S:1925,'昭':1925}[m[1]||'R'];return new Date(base+ +m[2],+m[3]-1,+m[4]);}
+const fmtD=s=>String(s||'').replace(/\s/g,'');
+
+/* ---------- 判定ルール ---------- */
+const PARTS=['足趾関節','趾関節','指関節','肩関節','肘関節','手関節','股関節','膝関節','足関節','頸部','背部','腰部','胸部','殿部','臀部','上腕部','前腕部','大腿部','下腿部','肩部','手部','足部'];
+const pn=p=>p.replace('臀','殿').replace('足趾','趾');
+function dxPart(dx){const m=dx.match(/第\d+(趾|指)関節/);if(m)return m[1]+'関節';for(const p of PARTS)if(dx.includes(p))return pn(p);return null;}
+const TGT=new RegExp('('+PARTS.join('|')+')(の筋|を[^、。]{0,6}捻)','g');
+function txtPart(t){let m,last=null;TGT.lastIndex=0;while((m=TGT.exec(t)))last=m;return last?{p:pn(last[1]),raw:last[0]}:null;}
+function scene(t){const m=t.match(/際に|時に/);return m?t.slice(0,m.index):t.slice(0,15);}
+
+function check(rows){
+  const h=rows[0].map(x=>x.replace(/^﻿/,'').trim()),ci=n=>h.indexOf(n);
+  const C={id:ci('ID'),nm:ci('受診者'),pd:ci('期間'),dx:ci('傷病'),fd:ci('負傷日'),sd:ci('開始日'),why:ci('負傷原因')};
+  if(C.id<0||C.dx<0||C.why<0)throw new Error('「ID」「傷病」「負傷原因」の列が見つかりません。メープルの「負傷原因一覧」のCSVを選んでください');
+  const recs=rows.slice(1).map(r=>({id:(r[C.id]||'').trim(),nm:(r[C.nm]||'').trim(),pd:C.pd>=0?(r[C.pd]||'').trim():'',dx:(r[C.dx]||'').trim(),fd:C.fd>=0?r[C.fd]:'',sd:C.sd>=0?r[C.sd]:'',why:(r[C.why]||'').trim()})).filter(r=>r.id||r.dx);
+  const by=new Map();recs.forEach(r=>{if(!by.has(r.id))by.set(r.id,[]);by.get(r.id).push(r);});
+  const out=[];
+  for(const [id,rs] of by){
+    const P={id,nm:rs[0].nm,rows:rs,iss:[]};
+    const add=(lv,dx,msg,hl)=>P.iss.push({lv,dx,msg,hl});
+    /* 予約表の患者さんと照合 */
+    if(S.pats){const p=S.pats.get(kanriNorm(id));
+      if(!p)add(3,'','予約表の患者一覧にこの管理番号がありません（新しい患者さんなら、予約表でメープルの患者データCSVを取り込むと載ります）');
+      else if(nameKey(p.name)!==nameKey(P.nm))add(2,'','氏名が予約表（'+p.name+'）と違います。管理番号の入力ミスでないか確認してください');}
+    for(const r of rs){
+      const t=r.why,dp=dxPart(r.dx);
+      if(!t){add(1,r.dx,'負傷原因が空欄です');}
+      else{
+        const tp=txtPart(t);
+        if(dp&&tp&&dp!==tp.p)add(1,r.dx,'原因文で痛めた部位が「'+tp.p+'」になっています（傷病名は'+dp.replace('殿','殿')+'）',[tp.raw]);
+        else if(dp&&!tp&&!pn(t).includes(dp))add(1,r.dx,'原因文に「'+dp+'」が出てきません');
+        if(/捻挫/.test(r.dx)&&!/捻/.test(t))add(1,r.dx,'捻挫なのに、原因文に「捻る」動きがありません');
+        if(/挫傷/.test(r.dx)&&!/筋/.test(t))add(1,r.dx,'挫傷なのに、原因文に「筋」の記載がありません');
+        if(!/負傷$/.test(t))add(1,r.dx,'原因文が「負傷」で終わっていません（途中で切れている可能性）');
+        for(const [re,msg] of TYPOS){const m=t.match(re);if(m)add(1,r.dx,'誤字・脱字の可能性：'+msg,[m[0]]);}
+        if(/捻挫/.test(r.dx)&&/ぶつ/.test(t))add(3,r.dx,'捻挫の原因文に「ぶつけ／ぶつかった」があり、打撲と読まれる可能性があります',['ぶつ']);
+        const lr=t.match(/[左右]/);if(lr)add(3,r.dx,'原因文に左右の記載があります。傷病名の左右と合っているか確認してください',[lr[0]]);
+      }
+      const fd=wdate(r.fd),sd=wdate(r.sd);
+      if(fd&&sd){const g=Math.round((sd-fd)/864e5);
+        if(g<0)add(1,r.dx,'負傷日（'+fmtD(r.fd)+'）が初検日（'+fmtD(r.sd)+'）より後になっています');
+        else if(g>=GAP_DAYS)add(2,r.dx,'負傷日（'+fmtD(r.fd)+'）から初検（'+fmtD(r.sd)+'）まで'+g+'日空いています。来院が遅れた理由の記載を確認してください');}
+    }
+    /* 同じ負傷日なのに場面が違う */
+    const g=new Map();rs.forEach(r=>{const k=fmtD(r.fd);if(!g.has(k))g.set(k,[]);g.get(k).push(r);});
+    for(const [k,arr] of g){const sc=[...new Set(arr.filter(r=>r.why).map(r=>scene(r.why)))];
+      if(sc.length>1)add(1,'','負傷日（'+k+'）が同じなのに、部位によって負傷の場面が違います：「'+sc.join('」／「')+'」',sc);}
+    if(g.size>1)add(3,'','負傷日が複数あります（'+[...g.keys()].join('、')+'）');
+    if(rs.length>=MANY_PARTS)add(3,'',rs.length+'部位です');
+    /* 同じ指摘をまとめる */
+    const seen=new Set();P.iss=P.iss.filter(x=>{const k=x.lv+x.dx+x.msg;if(seen.has(k))return false;seen.add(k);return true;}).sort((a,b)=>a.lv-b.lv);
+    P.top=P.iss.length?P.iss[0].lv:9;
+    out.push(P);
+  }
+  out.sort((a,b)=>a.top-b.top||(+a.id||0)-(+b.id||0));
+  return {list:out,nRows:recs.length,period:recs[0]?recs[0].pd:''};
+}
+
+/* ---------- 画面 ---------- */
+const LV={1:['s1','要修正'],2:['s2','要確認'],3:['s3','参考']};
+function hl(t,words){let s=esc(t);(words||[]).forEach(w=>{if(!w)return;const e=esc(w);s=s.split(e).join('<mark>'+e+'</mark>');});return s;}
+function render(){
+  const v=$('#view');
+  let h='';
+  if(S.admin){h+='<div class="card noprint row"><label for="st">店舗</label><select id="st">'+Object.keys(STORE_NAMES).map(k=>'<option value="'+k+'"'+(k===S.store?' selected':'')+'>'+STORE_NAMES[k]+'</option>').join('')+'</select><span class="muted">管理者は店舗を切り替えてチェックできます（患者さんの照合に使う店舗です）</span></div>';}
+  h+='<div class="card noprint"><h2>メープルの「負傷原因一覧」CSVを選んでください</h2>'+
+     '<label class="drop" id="drop"><b>📄 ここをタップしてCSVを選ぶ</b><span class="muted">パソコンならファイルをここにドラッグしても大丈夫です</span><input type="file" id="f" accept=".csv,text/csv"></label>'+
+     '<p class="muted" style="margin:8px 0 0">CSVはこの端末の中だけで読み込みます。インターネット上には送らず、保存もしません。'+(S.pats?'患者さんの照合には、予約表に登録済みの'+esc(STORE_NAMES[S.store])+'の患者さん（'+S.pats.size+'人）を使います。':'')+'</p></div>';
+  if(S.res){
+    const L=S.res.list,cnt={1:0,2:0,3:0};L.forEach(p=>{const s=new Set(p.iss.map(x=>x.lv));s.forEach(l=>cnt[l]++);});
+    const clean=L.filter(p=>!p.iss.some(x=>x.lv<3)).length;
+    h+='<div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">チェック結果（'+esc(STORE_NAMES[S.store]||'')+'）</h2><div class="row noprint"><button id="pr">🖨 印刷</button><button id="clr">別のCSVを選ぶ</button></div></div>'+
+       '<p class="muted">'+esc(S.file)+(S.res.period?'　期間：'+esc(S.res.period):'')+'　'+L.length+'人・'+S.res.nRows+'部位</p>'+
+       '<div class="sum noprint">'+
+       '<button class="s1" data-f="1" aria-pressed="'+(S.filter==='1')+'"><span class="n">'+cnt[1]+'</span><span class="l">要修正の人</span></button>'+
+       '<button class="s2" data-f="2" aria-pressed="'+(S.filter==='2')+'"><span class="n">'+cnt[2]+'</span><span class="l">要確認の人</span></button>'+
+       '<button class="s3" data-f="3" aria-pressed="'+(S.filter==='3')+'"><span class="n">'+cnt[3]+'</span><span class="l">参考がある人</span></button>'+
+       '<button data-f="all" aria-pressed="'+(S.filter==='all')+'"><span class="n">'+L.filter(p=>p.iss.length).length+'</span><span class="l">指摘のある人すべて</span></button>'+
+       '</div>'+(cnt[1]+cnt[2]===0?'<div class="banner ok" style="margin:0">要修正・要確認はありませんでした（'+clean+'人とも問題なし）。</div>':'<p class="muted" style="margin:0">指摘のない人：'+clean+'人（参考のみの人を含む）</p>')+'</div>';
+    const show=L.filter(p=>p.iss.length&&(S.filter==='all'||p.iss.some(x=>String(x.lv)===S.filter)));
+    if(!show.length)h+='<div class="empty">この区分の指摘はありません</div>';
+    show.forEach(p=>{
+      const words=[].concat(...p.iss.map(x=>x.hl||[]));
+      h+='<div class="pt"><div class="hd"><span class="nm">'+esc(p.nm)+'</span><span class="no">管理番号 '+esc(p.id)+'</span>'+[...new Set(p.iss.map(x=>x.lv))].map(l=>'<span class="pill '+LV[l][0]+'">'+LV[l][1]+'</span>').join('')+'</div>'+
+         '<ul class="iss">'+p.iss.filter(x=>S.filter==='all'||String(x.lv)===S.filter||x.lv<3).map(x=>'<li><span class="pill '+LV[x.lv][0]+'">'+LV[x.lv][1]+'</span><span>'+(x.dx?'<span class="dx">'+esc(x.dx)+'</span>：':'')+esc(x.msg)+'</span></li>').join('')+'</ul>'+
+         '<details class="src"><summary>この方の原因文を見る（'+p.rows.length+'部位）</summary><table class="cs"><tr><th>傷病</th><th>負傷日</th><th>初検日</th><th>負傷原因</th></tr>'+
+         p.rows.map(r=>'<tr><td>'+esc(r.dx)+'</td><td>'+esc(fmtD(r.fd))+'</td><td>'+esc(fmtD(r.sd))+'</td><td>'+(r.why?hl(r.why,words):'<span style="color:var(--red)">（空欄）</span>')+'</td></tr>').join('')+'</table></details></div>';
+    });
+  }else{
+    h+='<div class="card"><h2>チェックする内容</h2><ul class="muted" style="margin:0;padding-left:20px;line-height:1.8">'+
+       '<li><b style="color:var(--red)">要修正</b>：傷病名の部位と原因文で痛めた部位の食い違い／捻挫なのに「捻る」がない・挫傷なのに「筋」がない／同じ負傷日なのに部位ごとに場面が違う／原因文の空欄・途中切れ／よくある誤字・脱字</li>'+
+       '<li><b style="color:var(--org)">要確認</b>：負傷日から初検まで'+GAP_DAYS+'日以上空いている／氏名が予約表と違う</li>'+
+       '<li><b>参考</b>：捻挫の原因文に「ぶつけ」がある／原因文に左右の記載がある／負傷日が複数ある／'+MANY_PARTS+'部位以上／予約表に未登録の管理番号</li></ul>'+
+       '<p class="muted" style="margin:8px 0 0">誤字・脱字はよくある形だけを拾います。すべての誤字は見つけられないので、月に一度は目でも確認してください。</p></div>';
+  }
+  v.innerHTML=h;
+  const f=$('#f');if(f)f.onchange=e=>{const file=e.target.files[0];if(file)readFile(file);e.target.value='';};
+  const d=$('#drop');if(d){d.ondragover=e=>{e.preventDefault();d.classList.add('over');};d.ondragleave=()=>d.classList.remove('over');d.ondrop=e=>{e.preventDefault();d.classList.remove('over');const file=e.dataTransfer.files[0];if(file)readFile(file);};}
+  const st=$('#st');if(st)st.onchange=async()=>{S.store=st.value;await loadPats();if(S.raw)runCheck();else render();};
+  document.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{S.filter=b.dataset.f;render();});
+  const pr=$('#pr');if(pr)pr.onclick=()=>window.print();
+  const c=$('#clr');if(c)c.onclick=()=>{S.res=null;S.raw=null;S.file='';render();};
+  $('#ttl').textContent='レセプトチェック（'+(STORE_NAMES[S.store]||'')+'）';
+}
+function readFile(file){
+  const rd=new FileReader();
+  rd.onload=()=>{try{S.raw=parseCsv(decode(rd.result));S.file=file.name;runCheck();}catch(e){toast('CSVを読めませんでした');}};
+  rd.readAsArrayBuffer(file);
+}
+function runCheck(){
+  try{S.res=check(S.raw);S.filter='all';render();window.scrollTo(0,0);}
+  catch(e){S.res=null;S.raw=null;render();$('#view').insertAdjacentHTML('afterbegin','<div class="banner err">'+esc(e.message||'CSVを読めませんでした')+'</div>');}
+}
+async function loadPats(){
+  S.pats=null;
+  try{
+    const m=new Map();let from=0;
+    for(;;){const rows=await q(sb.from('patients').select('kanri_no,name').eq('store_id',S.store).not('kanri_no','is',null).order('id').range(from,from+999));
+      rows.forEach(r=>m.set(kanriNorm(r.kanri_no),r));if(rows.length<1000)break;from+=1000;}
+    S.pats=m;
+  }catch(e){toast('患者さんの一覧を読み込めませんでした（照合なしでチェックします）');}
+}
+
+/* ---------- ログイン ---------- */
+function showLogin(msg){
+  $('#who').innerHTML='<a href="'+YOYAKU_URL+'">予約表へ</a>';
+  $('#view').innerHTML='<form class="login" id="lf"><h2>ログイン</h2><p class="muted" style="text-align:center;margin:0">予約表と同じメールアドレスとパスワードです</p>'+(msg?'<div class="banner err" style="margin-top:12px">'+esc(msg)+'</div>':'')+'<label>メールアドレス</label><input type="email" id="le" autocomplete="username" required><label>パスワード</label><input type="password" id="lp" autocomplete="current-password" required><button class="primary" type="submit">ログイン</button></form>';
+  $('#lf').addEventListener('submit',async ev=>{
+    ev.preventDefault();ev.target.querySelector('button').disabled=true;
+    const {data,error}=await sb.auth.signInWithPassword({email:$('#le').value.trim(),password:$('#lp').value});
+    if(error){showLogin('メールアドレスかパスワードが違います');return;}
+    start(data.user);
+  });
+}
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-act=logout]');if(b){await sb.auth.signOut();location.reload();}});
+async function start(user){
+  S.user=user;
+  try{
+    const pr=await q(sb.from('profiles').select('role,store_id').eq('user_id',user.id).maybeSingle());
+    if(!pr){await sb.auth.signOut();showLogin('このアカウントは店舗に登録されていません。管理者に連絡してください。');return;}
+    S.admin=pr.role==='admin';
+    S.store=pr.store_id||(S.admin?'s4':null);
+    if(!S.store)S.store='s4';
+    $('#who').innerHTML='<span>'+esc(S.admin?'管理者':(STORE_NAMES[S.store]||''))+'</span><a href="'+YOYAKU_URL+'">予約表へ</a><button class="link" data-act="logout">ログアウト</button>';
+    await loadPats();
+  }catch(e){$('#view').innerHTML='<div class="banner err">読み込めませんでした（'+esc(errText(e))+'）。</div>';return;}
+  render();
+}
+async function boot(){
+  if(!window.supabase){$('#view').innerHTML='<div class="banner err">通信の準備ができませんでした。ページを開き直してください。</div>';return;}
+  sb=supabase.createClient(SB_URL,SB_KEY);
+  const {data}=await sb.auth.getSession();
+  if(data&&data.session&&data.session.user)start(data.session.user);else showLogin();
+}
+/* テスト用に判定だけ外から呼べるようにする */
+window.__receiptCheck={parseCsv,check,decode,setPats:m=>{S.pats=m;}};
+if(!window.__NO_BOOT)boot();
+})();
+</script>
+</body>
+</html>
