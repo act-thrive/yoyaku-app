@@ -102,7 +102,7 @@ button{cursor:pointer}
 .tt.sh .bk .nm{-webkit-line-clamp:1}
 .tt.sh .bk .no{display:block;font-size:10.5px;padding:0}
 .tt.nar .bk i{transform:scale(.8);transform-origin:top right}
-.tt.nar .hd{font-size:13px;padding:8px 2px}
+.tt.nar .hd{font-size:12px;padding:8px 1px;letter-spacing:-.5px}
 .bk .no{display:block;font-size:11px;font-weight:600;color:var(--mut);line-height:1.2;overflow:hidden;text-overflow:ellipsis}
 .qc .bk .nm,.qc .bk .no{display:inline}.qc .bk .no{margin-left:3px}
 .nm.nw{color:var(--bad)}
@@ -251,12 +251,16 @@ function patient(){
  <p>下の表の空き枠をタップすると予約が入ります。店舗を変更しても、過去の予約は元の店舗に残ります。</p></div>`;
 }
 function detail(){detail0();const h=$('detail').innerHTML?$('detail').offsetHeight+24:0;document.body.style.paddingBottom=h?h+'px':''}
+function navRow(){const u=S.one?'日':'週';return '<span class="row" style="gap:6px;margin-left:auto;flex-wrap:nowrap"><button class="btn" data-nav="prev">‹ 前の'+u+'</button><strong style="white-space:nowrap">'+esc($('dl').textContent)+'</strong><button class="btn" data-nav="next">次の'+u+' ›</button></span>'}
 function detail0(){
+ if(S.nx&&S.pid&&!S.mv&&!S.sel){
+  $('detail').innerHTML='<div class="panel row" style="background:var(--hi)"><span><strong>'+esc(pn(S.pid))+'さん</strong>の次回予約：空いている枠を押すと確定します</span>'+navRow()+'<button class="btn" id="nxcancel">やめる</button></div>';
+  return}
  if(S.mv){
   const mb=B[S.mv];
   if(!mb){S.mv=null}
   else{const [dk0,,s0,t0]=S.mv.split('|');
-   $('detail').innerHTML='<div class="panel row" style="background:var(--hi)"><span><strong>'+esc(pn(mb.pid))+'さん</strong>（'+md(fromIso(dk0))+' '+fmt(+t0)+'）の移動先の空いている枠を押してください。日付を変えるときは「‹」「›」で動かせます。</span><button class="btn" id="mvcancel">やめる</button></div>';
+   $('detail').innerHTML='<div class="panel row" style="background:var(--hi)"><span><strong>'+esc(pn(mb.pid))+'さん</strong>（'+md(fromIso(dk0))+' '+fmt(+t0)+'）の移動先の空いている枠を押してください。</span>'+navRow()+'<button class="btn" id="mvcancel">やめる</button></div>';
    return}
  }
  const b=S.sel&&B[S.sel];
@@ -684,6 +688,8 @@ $('tt').onclick=async e=>{
  if(await book(b.dataset.s==='q'?'q':+b.dataset.s,+b.dataset.t,S.pid,b.dataset.d?fromIso(b.dataset.d):S.date)){S.sel=null;render()}
 };
 $('detail').onclick=async e=>{
+ if(e.target.dataset&&e.target.dataset.nav){$(e.target.dataset.nav).click();return}
+ if(e.target.id==='nxcancel'){S.nx=false;S.pid=null;S.psig='';render();sugg();return}
  if(e.target.id==='cancel'){if(await unbook(S.sel)){S.sel=null;toast('予約を取り消しました')}render()}
  if(e.target.id==='close'){S.sel=null;render()}
  if(e.target.id==='nxbtn'){const k=S.sel,b=B[k];if(!b)return;if(!wr())return;const pb=b.cont?B[b.cont]:b;if(!pb)return;const p=P.find(x=>x.id===pb.pid);if(!p){toast('この患者さんは、この店舗の患者一覧にいません');return}const m=pb.m||{};S.pid=p.id;S.mk={j:m.j?1:0,h:m.h?1:0,r:0,n:0,w:pb.span===2?1:0};S.nx=true;S.mv=null;S.sel=null;S.psig='';render();toast(p.n+'さんの次回の日時の空き枠を押してください')}
